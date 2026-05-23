@@ -526,7 +526,7 @@ function Sidebar() {
     {k:'history',i:'🕐',l:'ประวัติ', badge:transactions.length||null},
     {k:'customers',i:'👥',l:'ลูกค้า / Lot'},
     ...(canEdit()?[{k:'addproduct',i:'➕',l:'เพิ่มสินค้าใหม่'}]:[]),
-    ...(isViewer?[]:[{k:'alerts',i:'⚠',l:'แจ้งเตือน'}]),
+    ...(isViewer?[]:isAdmin()?[{k:'alerts',i:'⚠',l:'แจ้งเตือน'}]:[]),
     ...(isViewer?[]:[{k:'discontinued',i:'🚫',l:'สินค้าเลิกขาย', badge:getDiscontinued().length||null, badgeColor:'#64748b'}]),
     ...(isAdmin()?[{k:'admin',i:'⚙️',l:'จัดการผู้ใช้'}]:[]),
   ];
@@ -585,6 +585,48 @@ function Sidebar() {
 }
 
 // ===== TOPBAR =====
+// ===== EXPORT CSV =====
+function exportCSV(type) {
+  let rows = [], filename = '';
+
+  if (type === 'stock') {
+    filename = 'DM-Stock-' + td() + '.csv';
+    rows.push(['รหัส','รหัสอ้างอิง','ชื่อสินค้า','ประเภท','สต็อก (ตร.ม)','กล่อง','แผ่น/กล่อง','ตร.ม/แผ่น','Sheet size','Chip size','สถานะ']);
+    getFiltered().forEach(p => {
+      const boxes = Math.floor(p.stock/((parseFloat(p.pcsPerBox)||1)*(parseFloat(p.sqmPerPc)||1)));
+      rows.push([p.id,p.code||'',p.name,p.type||'',fmtNum(p.stock,4),boxes,p.pcsPerBox||'',p.sqmPerPc||'',p.size||'',p.chipSize||'',p.status]);
+    });
+  } else if (type === 'history') {
+    filename = 'DM-History-' + td() + '.csv';
+    rows.push(['วันที่','ประเภท','รหัส','ชื่อสินค้า','จำนวน (ตร.ม)','Lot','โปรเจค','ที่เก็บ','หมายเหตุ','ยกเลิก']);
+    getFilteredTx().forEach(tx => {
+      const p = products.find(x=>x.id===tx.productId||x.code===tx.productCode);
+      rows.push([
+        tx.date, tx.type==='in'?'รับเข้า':'จ่ายออก',
+        tx.productCode||tx.productId, p?p.name:'',
+        (tx.type==='in'?'+':'-')+fmtNum(tx.sqm,4),
+        tx.lot||'', tx.project||'', tx.location||'', tx.note||'',
+        tx.cancelled?'ยกเลิก':''
+      ]);
+    });
+  } else if (type === 'lots') {
+    filename = 'DM-Lots-' + td() + '.csv';
+    rows.push(['รหัสสินค้า','รหัสอ้างอิง','Lot','คงเหลือ (ตร.ม)','วันที่เข้า','วันที่ล่าสุด']);
+    lots.filter(l=>l.stock>0).forEach(l => {
+      rows.push([l.productId,l.productCode||'',l.lot,fmtNum(l.stock,4),l.firstDate,l.lastDate]);
+    });
+  }
+
+  const bom = '\uFEFF'; // UTF-8 BOM สำหรับ Excel ภาษาไทย
+  const csv = bom + rows.map(r => r.map(v => '"'+String(v||'').replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+  showToast('✓ ดาวน์โหลด '+filename);
+}
+
 function Topbar() {
   const titles={dashboard:'Dashboard',stock:'สต็อกสินค้า',in:'รับสินค้าเข้า',out:'จ่ายสินค้าออก',history:'ประวัติการเคลื่อนไหว',customers:'ลูกค้า / Lot / สินค้า',alerts:'แจ้งเตือนสินค้า',admin:'จัดการผู้ใช้',addproduct:'เพิ่มสินค้าใหม่',discontinued:'สินค้าเลิกขาย'};
   return h('div',{className:'topbar'},
@@ -593,6 +635,10 @@ function Topbar() {
       h('h1',{style:{fontSize:'17px',fontWeight:700,color:'#0f172a'}},titles[ui.view]||'')
     ),
     h('div',{style:{display:'flex',alignItems:'center',gap:'8px'}},
+      // ปุ่ม Export ตามหน้าที่เปิดอยู่
+      ui.view==='stock'?h('button',{className:'btn btn-outline',style:{fontSize:'12px'},onClick:()=>exportCSV('stock')},'⬇ Export สต็อก'):null,
+      ui.view==='history'?h('button',{className:'btn btn-outline',style:{fontSize:'12px'},onClick:()=>exportCSV('history')},'⬇ Export ประวัติ'):null,
+      (ui.view==='customers')?h('button',{className:'btn btn-outline',style:{fontSize:'12px'},onClick:()=>exportCSV('lots')},'⬇ Export Lots'):null,
       h('button',{className:'btn btn-outline',onClick:()=>{fetchProducts();fetchTransactions();fetchLots();fetchProjects();}},
         h('span',{style:{display:'inline-block',animation:(isLoading||isLoadingTx)?'spin .7s linear infinite':'none'}},'🔄'),
         h('span',{className:'desktop-only'},'Sync')
@@ -628,8 +674,6 @@ function Dashboard() {
   const kpis=[
     {label:'สินค้าทั้งหมด',value:stats.total.toLocaleString(),sub:'รายการ',color:'#0ea5e9',action:()=>{ui.view='stock';ui.filterStatus='ทั้งหมด';render();}},
     {label:'สต็อกปกติ',value:stats.ok.toLocaleString(),sub:fmtNum(stats.ok/Math.max(stats.total,1)*100,0)+'% ของทั้งหมด',color:'#10b981',action:()=>{ui.view='stock';ui.filterStatus='ok';render();}},
-    {label:'ใกล้หมด',value:stats.low.toLocaleString(),sub:'ต้องเติม',color:'#f59e0b',action:()=>{ui.view='stock';ui.filterStatus='low';render();}},
-    {label:'หมดสต็อก',value:stats.out.toLocaleString(),sub:'ต้องสั่งซื้อ',color:'#ef4444',action:()=>{ui.view='stock';ui.filterStatus='out';render();}},
     {label:'สต็อกรวม',value:fmtNum(stats.sqm,1),sub:'ตร.ม',color:'#8b5cf6',action:()=>{ui.view='stock';ui.filterStatus='ทั้งหมด';ui.sortBy='stock_desc';render();}},
   ];
 
@@ -871,6 +915,7 @@ function PickList(type) {
             h('th',{style:{width:'110px'}},'ทำล่าสุด'),
             h('th',{style:{width:'140px'}},'รหัส'),
             h('th',{},'สินค้า'),
+            h('th',{style:{width:'120px'}},'Lot'),
             h('th',{style:{textAlign:'right'}},'สต็อก'),
             h('th',{},'สถานะ')
           )
@@ -886,19 +931,41 @@ function PickList(type) {
 }
 
 function renderPickTbody(tbody, type) {
-  const filtered = getFiltered().filter(p => type==='out' ? p.stock>0 : true);
+  const q = (ui.search||'').toLowerCase();
+  let filtered = getFiltered().filter(p => type==='out' ? p.stock>0 : true);
+
+  // ค้นหาจาก Lot ด้วย
+  if (q) {
+    const lotMatch = lots.filter(l =>
+      String(l.lot||'').toLowerCase().includes(q) && l.stock > 0
+    ).map(l => String(l.productId).trim());
+
+    filtered = filtered.filter(p =>
+      String(p.name||'').toLowerCase().includes(q) ||
+      String(p.code||'').toLowerCase().includes(q) ||
+      String(p.id||'').toLowerCase().includes(q) ||
+      String(p.type||'').toLowerCase().includes(q) ||
+      lotMatch.includes(String(p.id).trim())
+    );
+  }
+
   const hoverBg = type==='in' ? '#f0fdf4' : '#fef2f2';
   tbody.innerHTML = '';
   if (filtered.length === 0) {
-    tbody.appendChild(h('tr',{},h('td',{colspan:5,style:{padding:'40px',textAlign:'center',color:'#94a3b8'}},'ไม่พบสินค้า')));
+    tbody.appendChild(h('tr',{},h('td',{colspan:6,style:{padding:'40px',textAlign:'center',color:'#94a3b8'}},'ไม่พบสินค้า')));
     return;
   }
   const currentDate = ui.txForm.date || td();
   filtered.slice(0,150).forEach(p => {
+    // แสดง Lot ที่มีของ
+    const productLots = getLotsForProduct(p.id);
+    const lotText = productLots.length > 0
+      ? productLots.slice(0,3).map(l=>l.lot).join(', ') + (productLots.length>3?'...':'')
+      : '-';
+
     const row = h('tr',{style:{cursor:'pointer'},
       onClick:()=>{
         ui.selectedId=p.id;
-        // เก็บวันที่ที่เลือกไว้ ไม่ reset
         const keepDate = ui.txForm.date || td();
         ui.txForm={date:keepDate,qty:'',unit:'sqm',note:'',location:'',lot:'',project:''};
         ui.modal=type;
@@ -909,6 +976,9 @@ function renderPickTbody(tbody, type) {
       h('td',{className:'product-cell'},
         h('div',{className:'product-name'},p.name),
         h('div',{className:'product-meta'},(p.type||'')+' · '+(p.size||''))
+      ),
+      h('td',{style:{fontSize:'11px',color:'#64748b',maxWidth:'120px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},
+        productLots.length>0 ? h('span',{style:{fontFamily:'monospace',color:'#0f172a',fontWeight:500}},lotText) : h('span',{style:{color:'#cbd5e1'}},'-')
       ),
       h('td',{style:{textAlign:'right'}},
         h('span',{className:'stock-num',style:{fontSize:'14px',color:p.status==='out'?'#dc2626':p.status==='low'?'#d97706':'#0f172a'}},fmtNum(p.stock,2))
