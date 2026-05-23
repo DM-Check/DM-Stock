@@ -115,7 +115,7 @@
 
 <script>
 // ===== CONFIG =====
-const API_URL = "https://script.google.com/macros/s/AKfycbyhm2U8Ac_o_u1xZrCOHcdffIkYfOYXRkH56uZwFESTFlMmnLRpM1WaQKWxLVIBUsX91Q/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzX-gQCKy8C6iebegrKoGE4uGJ4yXs7GPD5YKMRPLimnGgdn9jejlOj2nL8pY1mEup7VQ/exec";
 const SESSION_KEY = 'dm_session_v1';
 const SESSION_DAYS = 30;
 
@@ -2171,35 +2171,50 @@ function AdminPage() {
       allUsers.length===0?h('div',{style:{padding:'30px',textAlign:'center',color:'#94a3b8'}},'ยังไม่มีผู้ใช้'):
       h('table',{},
         h('thead',{},h('tr',{},
-          h('th',{},'ชื่อ'), h('th',{},'Email'), h('th',{},'ระดับ'),
+          h('th',{},'ชื่อ'), h('th',{},'Email'), h('th',{},'รหัสผ่าน'), h('th',{},'ระดับ'),
           h('th',{},'เข้าล่าสุด'), h('th',{style:{width:'130px'}},'')
         )),
-        h('tbody',{},...allUsers.map(u=>h('tr',{},
-          h('td',{style:{fontWeight:600}},
-            u.name,
-            u.name===currentUser.name?h('span',{style:{background:'#dbeafe',color:'#1e40af',borderRadius:'4px',padding:'1px 6px',fontSize:'10px',marginLeft:'6px',fontWeight:600}},'คุณ'):null
-          ),
-          h('td',{style:{fontSize:'12px',color:'#64748b'}},u.email||'-'),
-          h('td',{},h('span',{className:'badge',style:{
-            background: u.role==='admin'?'#fef3c7':u.role==='poweruser'?'#dbeafe':'#f1f5f9',
-            color: u.role==='admin'?'#92400e':u.role==='poweruser'?'#1e40af':'#64748b'
-          }}, u.role==='admin'?'Admin':u.role==='poweruser'?'Power User':'Viewer')),
-          h('td',{style:{fontSize:'12px',color:'#64748b'}},u.lastLogin||'-'),
-          h('td',{},
-            u.name===currentUser.name?null:
-            h('div',{style:{display:'flex',gap:'4px'}},
-              h('button',{className:'btn btn-outline',style:{fontSize:'11px',padding:'4px 8px'},
-                onClick:()=>{ui.selectedId=u.name;ui.modal='editUser';render();}},'แก้ไข'),
-              h('button',{className:'btn btn-danger',style:{fontSize:'11px',padding:'4px 8px'},
-                onClick:async()=>{
-                  if(!confirm('ลบผู้ใช้ "'+u.name+'" ออกจากระบบ?')) return;
-                  const r = await apiDeleteUser(u.name);
-                  if(r.success){showToast('✓ ลบแล้ว'); await fetchAllUsers(); render();}
-                  else showToast('❌ '+r.error,'err');
-                }},'ลบ')
+        h('tbody',{},...allUsers.map(u=>{
+          // ปุ่มแสดง/ซ่อนรหัส
+          const pwSpan = h('span',{style:{fontFamily:'monospace',fontSize:'12px',letterSpacing:'1px'}},'••••••');
+          let pwVisible = false;
+          const eyeBtn = h('button',{style:{background:'none',border:'none',cursor:'pointer',fontSize:'13px',color:'#94a3b8',padding:'0 0 0 4px',verticalAlign:'middle'}},'👁');
+          eyeBtn.addEventListener('click',e=>{
+            e.stopPropagation();
+            pwVisible=!pwVisible;
+            pwSpan.textContent=pwVisible?(u.password||'-'):'••••••';
+            eyeBtn.textContent=pwVisible?'🙈':'👁';
+          });
+          const pwCell = h('td',{style:{whiteSpace:'nowrap'}},pwSpan,eyeBtn);
+
+          return h('tr',{},
+            h('td',{style:{fontWeight:600}},
+              u.name,
+              u.name===currentUser.name?h('span',{style:{background:'#dbeafe',color:'#1e40af',borderRadius:'4px',padding:'1px 6px',fontSize:'10px',marginLeft:'6px',fontWeight:600}},'คุณ'):null
+            ),
+            h('td',{style:{fontSize:'12px',color:'#64748b'}},u.email||'-'),
+            pwCell,
+            h('td',{},h('span',{className:'badge',style:{
+              background: u.role==='admin'?'#fef3c7':u.role==='poweruser'?'#dbeafe':'#f1f5f9',
+              color: u.role==='admin'?'#92400e':u.role==='poweruser'?'#1e40af':'#64748b'
+            }}, u.role==='admin'?'Admin':u.role==='poweruser'?'Power User':'Viewer')),
+            h('td',{style:{fontSize:'12px',color:'#64748b'}},u.lastLogin||'-'),
+            h('td',{},
+              u.name===currentUser.name?null:
+              h('div',{style:{display:'flex',gap:'4px'}},
+                h('button',{className:'btn btn-outline',style:{fontSize:'11px',padding:'4px 8px'},
+                  onClick:()=>{ui.selectedId=u.name;ui.modal='editUser';render();}},'แก้ไข'),
+                h('button',{className:'btn btn-danger',style:{fontSize:'11px',padding:'4px 8px'},
+                  onClick:async()=>{
+                    if(!confirm('ลบผู้ใช้ "'+u.name+'" ออกจากระบบ?')) return;
+                    const r = await apiDeleteUser(u.name);
+                    if(r.success){showToast('✓ ลบแล้ว'); await fetchAllUsers(); render();}
+                    else showToast('❌ '+r.error,'err');
+                  }},'ลบ')
+              )
             )
-          )
-        )))
+          );
+        }))
       )
     )
   );
