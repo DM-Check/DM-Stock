@@ -159,8 +159,9 @@ async function fetchLastRead() {
     const res = await fetch(url);
     const data = await res.json();
     if (data.success) {
-      myLastRead = data.lastRead; // timestamp ms
+      myLastRead = data.lastRead;
       updateUnreadCount();
+      render(); // re-render เพื่ออัปเดต badge
     }
   } catch(e) {}
 }
@@ -311,14 +312,17 @@ async function fetchTransactions() {
   } catch(e) { console.error('Load tx failed:', e); }
   isLoadingTx = false;
 
-  // ถ้าหน้าประวัติเปิดอยู่ → อัปเดต tbody โดยตรง ไม่ต้อง render ใหม่ทั้งหน้า
+  // ถ้าหน้าประวัติเปิดอยู่ → อัปเดต tbody โดยตรง
   const tbody = document.getElementById('history-tbody');
   const countEl2 = document.getElementById('history-count');
   if (tbody) {
     renderHistoryTbody(tbody);
     if (countEl2) countEl2.textContent = getFilteredTx().length.toLocaleString() + ' รายการ';
+    // อัปเดต badge ใน sidebar โดยไม่ render ทั้งหน้า
+    const badgeEl = document.getElementById('history-badge');
+    if (badgeEl) badgeEl.textContent = unreadCount || '';
   } else {
-    render(); // ถ้าไม่มี tbody ให้ render ใหม่ทั้งหน้า (เช่น ยังแสดง empty state)
+    render(); // ถ้าไม่มี tbody ให้ render ใหม่ทั้งหน้า
   }
 }
 
@@ -612,7 +616,10 @@ function Sidebar() {
       },
         h('span',{className:'nav-icon'},it.i),
         h('span',{style:{flex:1}},it.l),
-        it.badge?h('span',{style:{background:it.badgeColor||'rgba(255,255,255,.1)',color:it.badgeColor?'white':'#cbd5e1',padding:'1px 7px',borderRadius:'10px',fontSize:'11px',fontWeight:600}},it.badge):null
+        it.badge?h('span',{
+          id: it.k==='history'?'history-badge':undefined,
+          style:{background:it.badgeColor||'rgba(255,255,255,.1)',color:it.badgeColor?'white':'#cbd5e1',padding:'1px 7px',borderRadius:'10px',fontSize:'11px',fontWeight:600}
+        },it.badge):null
       ))
     ),
     // User info + logout
