@@ -1710,7 +1710,7 @@ function DetailModal() {
             h('div',{style:{fontWeight:600,fontSize:'14px',marginBottom:'3px'}},p.name),
             h('div',{style:{fontSize:'11px',color:'#64748b',fontFamily:'monospace'}},p.id),
             canEdit()?h('button',{className:'btn btn-ghost',style:{fontSize:'11px',padding:'3px 8px',marginTop:'5px'},
-              onClick:()=>{ui.modal='uploadImage';render();}},'📷 '+(p.imageUrl?'เปลี่ยนรูป':'อัปโหลดรูป')),
+              onClick:()=>{ui.modal='uploadImage';render();}},'📷 '+(p.imageUrl?'เปลี่ยนรูป':'อัปโหลดรูป')):null,
             p.imageUrl && canEdit() ? h('button',{className:'btn btn-danger',style:{fontSize:'11px',padding:'3px 8px',marginTop:'5px'},
               onClick:async()=>{
                 if(!confirm('ลบรูปสินค้านี้ออกจาก Drive ด้วยไหมครับ?')) return;
