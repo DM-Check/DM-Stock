@@ -115,7 +115,7 @@
 
 <script>
 // ===== CONFIG =====
-const API_URL = "https://script.google.com/macros/s/AKfycbw4QGT2Yas2mKJpUqR-tlCvR3tcPFm_2YdWwW6e3o9zSfseEmHySi9cnJuFQj3iWpQpEA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzWT78xICC8ZQwHxLh9EbLOIpn8XOoaa1bSi7GQN76S_UfyRTsgxxO-6bRTXhR4uJFISQ/exec";
 const SESSION_KEY = 'dm_session_v1';
 const SESSION_DAYS = 30;
 
@@ -226,7 +226,10 @@ async function fetchProducts() {
     const res = await fetch(API_URL + "?action=getProducts");
     const data = await res.json();
     if (data.success && data.products) {
-      products = data.products.filter(p => p.id && p.name);
+      products = data.products.filter(p => p.id && p.name).map(p => ({
+        ...p,
+        imageUrl: p.imageUrl || p.image || ''
+      }));
       lastSync = new Date();
     } else throw new Error(data.error || 'ดึงข้อมูลไม่สำเร็จ');
   } catch(e) { loadError = e.message; }
@@ -257,14 +260,14 @@ async function fetchTransactions() {
   } catch(e) { console.error('Load tx failed:', e); }
   isLoadingTx = false;
 
-  // ถ้าหน้าประวัติเปิดอยู่ → อัปเดต tbody โดยตรงไม่ต้อง render ใหม่ทั้งหน้า
+  // ถ้าหน้าประวัติเปิดอยู่ → อัปเดต tbody โดยตรง ไม่ต้อง render ใหม่ทั้งหน้า
   const tbody = document.getElementById('history-tbody');
   const countEl2 = document.getElementById('history-count');
   if (tbody) {
     renderHistoryTbody(tbody);
     if (countEl2) countEl2.textContent = getFilteredTx().length.toLocaleString() + ' รายการ';
   } else {
-    render();
+    render(); // ถ้าไม่มี tbody ให้ render ใหม่ทั้งหน้า (เช่น ยังแสดง empty state)
   }
 }
 
@@ -310,6 +313,32 @@ function getLotsForProduct(productId) {
 
 // ===== HELPERS =====
 function td() { return new Date().toISOString().split('T')[0]; }
+// แปลง Google Drive URL เป็น thumbnail URL
+function driveThumb(url, size=300) {
+  if (!url) return null;
+  url = String(url).trim();
+  if (!url.startsWith('http')) return null;
+  // แบบ /file/d/ID/view
+  let m = url.match(/\/file\/d\/([^\/\?]+)/);
+  if (m) return 'https://drive.google.com/thumbnail?id='+m[1]+'&sz=w'+size;
+  // แบบ id=ID
+  m = url.match(/[?&]id=([^&]+)/);
+  if (m) return 'https://drive.google.com/thumbnail?id='+m[1]+'&sz=w'+size;
+  // ถ้าเป็น thumbnail อยู่แล้ว
+  if (url.includes('thumbnail')) return url;
+  return null;
+}
+
+async function apiUploadImage(productId, fileName, mimeType, base64) {
+  const url = API_URL + "?" + new URLSearchParams({
+    action: 'uploadImage',
+    productId, fileName, mimeType,
+    base64
+  });
+  const res = await fetch(url);
+  return await res.json();
+}
+
 function fmtDate(d) {
   if (!d) return '-';
   const dt = new Date(d);
@@ -846,9 +875,9 @@ function renderPickTbody(tbody, type) {
 
 // ===== HISTORY =====
 function History() {
-  // โหลดอัตโนมัติถ้ายังไม่มีข้อมูล
+  // โหลดอัตโนมัติครั้งเดียวเมื่อเข้าหน้า ถ้ายังไม่มีข้อมูล
   if (transactions.length === 0 && !isLoadingTx) {
-    fetchTransactions();
+    setTimeout(() => fetchTransactions(), 0);
   }
 
   return h('div',{className:'card',style:{overflow:'hidden'}},
@@ -881,7 +910,7 @@ function History() {
     ):transactions.length===0?h('div',{className:'empty-state'},
       h('div',{className:'empty-icon'},'🕐'),
       h('div',{style:{fontWeight:600,marginBottom:'8px'}},'ยังไม่มีประวัติการเคลื่อนไหว'),
-      h('button',{className:'btn btn-primary',onClick:()=>fetchTransactions()},'🔄 โหลดใหม่')
+      h('button',{className:'btn btn-primary',onClick:()=>{isLoadingTx=false;fetchTransactions();}},'🔄 โหลดใหม่')
     ):h('div',{style:{overflowX:'auto',maxHeight:'calc(100vh - 200px)',overflowY:'auto'}},
       h('table',{},
         h('thead',{style:{position:'sticky',top:0,zIndex:5}},
@@ -1224,7 +1253,10 @@ function TxModal(type) {
 
 // ===== DETAIL MODAL =====
 function DetailModal() {
-  const p=getSelected(); if(!p) return null;
+  // ดึงข้อมูลสินค้าล่าสุดจาก products array โดยตรง
+  const selected = getSelected();
+  if (!selected) return null;
+  const p = products.find(x => x.id === selected.id) || selected;
   const stock=parseFloat(p.stock)||0;
   const status=getStatus(p);
   const boxes=Math.floor(stock/((parseFloat(p.pcsPerBox)||1)*(parseFloat(p.sqmPerPc)||1)));
@@ -1242,9 +1274,31 @@ function DetailModal() {
       ),
       h('div',{style:{background:'#f8fafc',borderRadius:'10px',padding:'14px',marginBottom:'14px',border:'1px solid #e2e8f0'}},
         h('div',{style:{display:'flex',alignItems:'flex-start',gap:'12px',marginBottom:'12px'}},
+          // รูปภาพ
+          (() => {
+            const thumbUrl = driveThumb(p.imageUrl, 80);
+            const imgWrap = h('div',{style:{width:'72px',height:'72px',borderRadius:'8px',overflow:'hidden',border:'1px solid #e2e8f0',background:'#f1f5f9',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',position:'relative',cursor:canEdit()?'pointer':'default'}});
+            if (thumbUrl) {
+              const img = h('img',{src:thumbUrl,style:{width:'100%',height:'100%',objectFit:'cover'}});
+              img.onerror = () => { imgWrap.innerHTML = '<span style="font-size:28px">🖼</span>'; };
+              imgWrap.appendChild(img);
+            } else {
+              imgWrap.appendChild(h('span',{style:{fontSize:'28px',color:'#cbd5e1'}},'🖼'));
+            }
+            if (canEdit()) {
+              const overlay = h('div',{style:{position:'absolute',inset:0,background:'rgba(0,0,0,.4)',display:'flex',alignItems:'center',justifyContent:'center',opacity:0,transition:'opacity .15s',fontSize:'18px'}},'+');
+              imgWrap.appendChild(overlay);
+              imgWrap.addEventListener('mouseenter',()=>overlay.style.opacity='1');
+              imgWrap.addEventListener('mouseleave',()=>overlay.style.opacity='0');
+              imgWrap.addEventListener('click',()=>{ui.modal='uploadImage';render();});
+            }
+            return imgWrap;
+          })(),
           h('div',{style:{flex:1}},
             h('div',{style:{fontWeight:600,fontSize:'14px',marginBottom:'3px'}},p.name),
-            h('div',{style:{fontSize:'11px',color:'#64748b',fontFamily:'monospace'}},p.id)
+            h('div',{style:{fontSize:'11px',color:'#64748b',fontFamily:'monospace'}},p.id),
+            canEdit()?h('button',{className:'btn btn-ghost',style:{fontSize:'11px',padding:'3px 8px',marginTop:'5px'},
+              onClick:()=>{ui.modal='uploadImage';render();}},'📷 '+(p.imageUrl?'เปลี่ยนรูป':'อัปโหลดรูป')):null
           ),
           badge(status)
         ),
@@ -1397,6 +1451,128 @@ function LoginPage() {
   card.appendChild(h('div',{style:{textAlign:'center',marginTop:'16px',fontSize:'12px',color:'#94a3b8'}},'หากลืมรหัสผ่าน กรุณาติดต่อ Admin'));
   wrap.appendChild(card);
   return wrap;
+}
+
+// ===== UPLOAD IMAGE MODAL =====
+function UploadImageModal() {
+  const p = getSelected(); if (!p) return null;
+  const thumbUrl = driveThumb(p.imageUrl, 200);
+
+  const overlay = h('div',{className:'modal-overlay',onClick:e=>{if(e.target===overlay&&!isSaving){ui.modal='detail';render();}}});
+  const modal = h('div',{className:'modal',style:{padding:'24px',maxWidth:'420px'}});
+
+  modal.appendChild(h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'18px'}},
+    h('div',{},
+      h('div',{style:{fontWeight:700,fontSize:'16px'}},'📷 อัปโหลดรูปสินค้า'),
+      h('div',{style:{color:'#64748b',fontSize:'12px',marginTop:'2px'}},p.name)
+    ),
+    h('button',{className:'btn btn-ghost',style:{padding:'5px 9px'},onClick:()=>{ui.modal='detail';render();}},'✕')
+  ));
+
+  // แสดงรูปปัจจุบัน
+  const previewWrap = h('div',{style:{marginBottom:'16px',textAlign:'center'}});
+  const previewImg = h('div',{style:{width:'160px',height:'160px',borderRadius:'10px',overflow:'hidden',border:'2px solid #e2e8f0',background:'#f8fafc',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto',fontSize:'48px',color:'#cbd5e1'}});
+  if (thumbUrl) {
+    const img = document.createElement('img');
+    img.src = thumbUrl; img.style.cssText='width:100%;height:100%;object-fit:cover';
+    img.onerror = () => { previewImg.innerHTML='🖼'; };
+    previewImg.appendChild(img);
+  } else {
+    previewImg.textContent = '🖼';
+  }
+  previewWrap.appendChild(previewImg);
+  previewWrap.appendChild(h('div',{style:{fontSize:'11px',color:'#94a3b8',marginTop:'6px'}},'รูปปัจจุบัน'));
+  modal.appendChild(previewWrap);
+
+  const errDiv = h('div',{style:{background:'#fee2e2',color:'#991b1b',borderRadius:'8px',padding:'9px 12px',fontSize:'13px',marginBottom:'12px',display:'none'}});
+  modal.appendChild(errDiv);
+
+  // Upload area
+  const uploadArea = h('div',{style:{border:'2px dashed #e2e8f0',borderRadius:'10px',padding:'24px',textAlign:'center',cursor:'pointer',transition:'all .15s',marginBottom:'16px'}});
+  uploadArea.appendChild(h('div',{style:{fontSize:'32px',marginBottom:'8px'}},'📁'));
+  uploadArea.appendChild(h('div',{style:{fontWeight:600,fontSize:'13px',color:'#0f172a'}},'คลิกเพื่อเลือกรูป'));
+  uploadArea.appendChild(h('div',{style:{fontSize:'11px',color:'#94a3b8',marginTop:'4px'}},'รองรับ JPG, PNG, WEBP ขนาดไม่เกิน 5MB'));
+
+  const fileInput = h('input',{type:'file',accept:'image/*',style:{display:'none'}});
+  let selectedFile = null;
+
+  fileInput.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { errDiv.textContent='ไฟล์ใหญ่เกิน 5MB'; errDiv.style.display='block'; return; }
+    selectedFile = file;
+    errDiv.style.display='none';
+
+    // preview รูปที่เลือก
+    const reader = new FileReader();
+    reader.onload = ev => {
+      previewImg.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = ev.target.result; img.style.cssText='width:100%;height:100%;object-fit:cover';
+      previewImg.appendChild(img);
+      previewWrap.lastElementChild.textContent = file.name + ' (' + (file.size/1024).toFixed(0) + ' KB)';
+    };
+    reader.readAsDataURL(file);
+
+    uploadArea.style.borderColor = '#0ea5e9';
+    uploadArea.style.background = '#f0f9ff';
+  });
+
+  uploadArea.addEventListener('click', () => fileInput.click());
+  uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.style.borderColor='#0ea5e9'; });
+  uploadArea.addEventListener('dragleave', () => { uploadArea.style.borderColor='#e2e8f0'; });
+  uploadArea.addEventListener('drop', e => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) { fileInput.files = e.dataTransfer.files; fileInput.dispatchEvent(new Event('change')); }
+  });
+  modal.appendChild(uploadArea);
+  modal.appendChild(fileInput);
+
+  const saveBtn = h('button',{className:'btn btn-primary',style:{flex:2,justifyContent:'center',padding:'10px'}},'✓ อัปโหลดรูป → Drive');
+  saveBtn.addEventListener('click', async() => {
+    if (!selectedFile) { errDiv.textContent='กรุณาเลือกรูปก่อน'; errDiv.style.display='block'; return; }
+    saveBtn.disabled=true; isSaving=true;
+    saveBtn.textContent='⏳ กำลังอัปโหลด...';
+    errDiv.style.display='none';
+
+    try {
+      // แปลงไฟล์เป็น base64
+      const base64 = await new Promise((res,rej) => {
+        const reader = new FileReader();
+        reader.onload = e => res(e.target.result.split(',')[1]);
+        reader.onerror = rej;
+        reader.readAsDataURL(selectedFile);
+      });
+
+      const result = await apiUploadImage(p.id, selectedFile.name, selectedFile.type, base64);
+
+      if (result.success) {
+        // อัปเดต imageUrl ใน local products array
+        const idx = products.findIndex(x=>x.id===p.id);
+        if (idx>=0) products[idx].imageUrl = result.viewUrl;
+
+        isSaving=false; ui.modal='detail';
+        showToast('✓ อัปโหลดรูปสำเร็จ · บันทึกลง Drive แล้ว 🎉');
+        render();
+      } else {
+        throw new Error(result.error || 'อัปโหลดไม่สำเร็จ');
+      }
+    } catch(e) {
+      errDiv.textContent='❌ '+e.message;
+      errDiv.style.display='block';
+      saveBtn.disabled=false; isSaving=false;
+      saveBtn.textContent='✓ อัปโหลดรูป → Drive';
+    }
+  });
+
+  modal.appendChild(h('div',{style:{display:'flex',gap:'8px'}},
+    h('button',{className:'btn btn-outline',style:{flex:1,justifyContent:'center',padding:'10px'},onClick:()=>{ui.modal='detail';render();}},'← กลับ'),
+    saveBtn
+  ));
+
+  overlay.appendChild(modal);
+  return overlay;
 }
 
 // ===== EDIT PRODUCT MODAL =====
@@ -2598,6 +2774,7 @@ function render() {
 
   if(ui.modal==='in'||ui.modal==='out'){const m=TxModal(ui.modal);if(m)app.appendChild(m);}
   else if(ui.modal==='detail'){const m=DetailModal();if(m)app.appendChild(m);}
+  else if(ui.modal==='uploadImage'){const m=UploadImageModal();if(m)app.appendChild(m);}
   else if(ui.modal==='editProduct'){const m=EditProductModal();if(m)app.appendChild(m);}
   else if(ui.modal==='cancelTx'){const m=CancelTxModal();if(m)app.appendChild(m);}
   else if(ui.modal==='addProduct'){const m=AddProductModal();if(m)app.appendChild(m);}
