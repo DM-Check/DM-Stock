@@ -216,7 +216,7 @@
 
 <script>
 // ===== CONFIG =====
-const API_URL = "https://script.google.com/macros/s/AKfycbwyRHkmKiWlqPEr2dKOvhaEMz9Gt7kmKZMAw0J9LeePwauqpp4hjHU5rj7PAN7ksWPn6Q/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxySEC0PgVSZ6rLIg7rqEYaS7iAGy5x3iNMSo0-3Jt3QYMuUDJCXr-Oss1P184MD58Avw/exec";
 const SESSION_KEY = 'dm_session_v1';
 const SESSION_DAYS = 30;
 
@@ -1710,7 +1710,23 @@ function DetailModal() {
             h('div',{style:{fontWeight:600,fontSize:'14px',marginBottom:'3px'}},p.name),
             h('div',{style:{fontSize:'11px',color:'#64748b',fontFamily:'monospace'}},p.id),
             canEdit()?h('button',{className:'btn btn-ghost',style:{fontSize:'11px',padding:'3px 8px',marginTop:'5px'},
-              onClick:()=>{ui.modal='uploadImage';render();}},'📷 '+(p.imageUrl?'เปลี่ยนรูป':'อัปโหลดรูป')):null
+              onClick:()=>{ui.modal='uploadImage';render();}},'📷 '+(p.imageUrl?'เปลี่ยนรูป':'อัปโหลดรูป')),
+            p.imageUrl && canEdit() ? h('button',{className:'btn btn-danger',style:{fontSize:'11px',padding:'3px 8px',marginTop:'5px'},
+              onClick:async()=>{
+                if(!confirm('ลบรูปสินค้านี้ออกจาก Drive ด้วยไหมครับ?')) return;
+                const url = API_URL + '?' + new URLSearchParams({action:'deleteImage', productId:p.id});
+                const res = await fetch(url);
+                const data = await res.json();
+                if(data.success){
+                  const idx = products.findIndex(x=>x.id===p.id);
+                  if(idx>=0) products[idx].imageUrl = '';
+                  showToast('✓ ลบรูปเรียบร้อย');
+                  ui.modal=null;
+                  render();
+                } else {
+                  showToast('❌ '+data.error,'err');
+                }
+              }},'🗑 ลบรูป') : null
           ),
           badge(status)
         ),
@@ -1979,8 +1995,24 @@ function UploadImageModal() {
     }
   });
 
-  modal.appendChild(h('div',{style:{display:'flex',gap:'8px'}},
+  modal.appendChild(h('div',{style:{display:'flex',gap:'8px',flexWrap:'wrap'}},
     h('button',{className:'btn btn-outline',style:{flex:1,justifyContent:'center',padding:'10px'},onClick:()=>{ui.modal='detail';render();}},'← กลับ'),
+    p.imageUrl ? h('button',{className:'btn btn-danger',style:{justifyContent:'center',padding:'10px'},
+      onClick:async()=>{
+        if(!confirm('ลบรูปออกจาก Drive ด้วยไหมครับ?')) return;
+        const url = API_URL + '?' + new URLSearchParams({action:'deleteImage', productId:p.id});
+        const res = await fetch(url);
+        const data = await res.json();
+        if(data.success){
+          const idx = products.findIndex(x=>x.id===p.id);
+          if(idx>=0) products[idx].imageUrl = '';
+          showToast('✓ ลบรูปเรียบร้อย');
+          ui.modal='detail';
+          render();
+        } else {
+          showToast('❌ '+data.error,'err');
+        }
+      }},'🗑 ลบรูป') : null,
     saveBtn
   ));
 
