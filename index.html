@@ -115,7 +115,7 @@
 
 <script>
 // ===== CONFIG =====
-const API_URL = "https://script.google.com/macros/s/AKfycbyhZ1YsajXR1Z8lhTAgx3_ptuMl37ICznvMPnm6oPj8V04zMTpALq1WPh3MGAyUgKor9Q/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyhm2U8Ac_o_u1xZrCOHcdffIkYfOYXRkH56uZwFESTFlMmnLRpM1WaQKWxLVIBUsX91Q/exec";
 const SESSION_KEY = 'dm_session_v1';
 const SESSION_DAYS = 30;
 
@@ -373,8 +373,13 @@ function showToast(msg, type='ok') {
   render();
   ui.toastTimer = setTimeout(()=>{ ui.toast=null; render(); }, 3500);
 }
+function isDiscontinued(p) {
+  return String(p.status||'').trim() === 'ยกเลิก';
+}
+
 function getFiltered() {
-  let list = products.map(p=>({...p, stock:parseFloat(p.stock)||0, status:getStatus(p)}));
+  // ซ่อนสินค้าที่เลิกขายแล้ว
+  let list = products.filter(p=>!isDiscontinued(p)).map(p=>({...p, stock:parseFloat(p.stock)||0, status:getStatus(p)}));
   if (ui.search) {
     const q = ui.search.toLowerCase();
     list = list.filter(p=>{
@@ -394,6 +399,10 @@ function getFiltered() {
     if(ui.sortBy==='code') return (a.code||'').localeCompare(b.code||'');
     return (a.name||'').localeCompare(b.name||'','th');
   });
+}
+
+function getDiscontinued() {
+  return products.filter(p=>isDiscontinued(p));
 }
 function getStats() {
   const all=products.map(p=>({...p,status:getStatus(p)}));
@@ -513,6 +522,7 @@ function Sidebar() {
     {k:'customers',i:'👥',l:'ลูกค้า / Lot'},
     ...(canEdit()?[{k:'addproduct',i:'➕',l:'เพิ่มสินค้าใหม่'}]:[]),
     {k:'alerts',i:'⚠',l:'แจ้งเตือน'},
+    {k:'discontinued',i:'🚫',l:'สินค้าเลิกขาย', badge:getDiscontinued().length||null, badgeColor:'#64748b'},
     ...(isAdmin()?[{k:'admin',i:'⚙️',l:'จัดการผู้ใช้'}]:[]),
   ];
 
@@ -571,7 +581,7 @@ function Sidebar() {
 
 // ===== TOPBAR =====
 function Topbar() {
-  const titles={dashboard:'Dashboard',stock:'สต็อกสินค้า',in:'รับสินค้าเข้า',out:'จ่ายสินค้าออก',history:'ประวัติการเคลื่อนไหว',customers:'ลูกค้า / Lot / สินค้า',alerts:'แจ้งเตือนสินค้า',admin:'จัดการผู้ใช้',addproduct:'เพิ่มสินค้าใหม่'};
+  const titles={dashboard:'Dashboard',stock:'สต็อกสินค้า',in:'รับสินค้าเข้า',out:'จ่ายสินค้าออก',history:'ประวัติการเคลื่อนไหว',customers:'ลูกค้า / Lot / สินค้า',alerts:'แจ้งเตือนสินค้า',admin:'จัดการผู้ใช้',addproduct:'เพิ่มสินค้าใหม่',discontinued:'สินค้าเลิกขาย'};
   return h('div',{className:'topbar'},
     h('div',{style:{display:'flex',alignItems:'center',gap:'12px'}},
       h('button',{className:'mobile-menu-btn',onClick:()=>{mobileMenuOpen=!mobileMenuOpen;render();}},'☰'),
@@ -1727,10 +1737,38 @@ function EditProductModal() {
     }
   });
 
+  const discontinued = isDiscontinued(p);
+
   form.appendChild(h('div',{style:{display:'flex',gap:'8px',marginTop:'4px'}},
     h('button',{className:'btn btn-outline',style:{flex:1,justifyContent:'center',padding:'10px'},
       onClick:()=>{ui.modal='detail';render();}},'← กลับ'),
     saveBtn
+  ));
+
+  // ปุ่มเลิกขาย / คืนสถานะ
+  form.appendChild(h('div',{style:{marginTop:'8px',paddingTop:'12px',borderTop:'1px solid #f1f5f9'}},
+    h('button',{
+      className:'btn '+(discontinued?'btn-success':'btn-danger'),
+      style:{width:'100%',justifyContent:'center',padding:'9px',fontSize:'13px'},
+      onClick:async()=>{
+        const msg = discontinued
+          ? 'คืนสถานะ "'+p.name+'" กลับมาขายได้?'
+          : 'เลิกขาย "'+p.name+'" จะซ่อนสินค้านี้จากแอป ยืนยัน?';
+        if (!confirm(msg)) return;
+        const newStatus = discontinued ? 'OK' : 'ยกเลิก';
+        const url = API_URL + "?" + new URLSearchParams({ action:'toggleProductStatus', targetId:p.id, newStatus });
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.success) {
+          showToast(discontinued?'✓ คืนสถานะสำเร็จ':'✓ เลิกขายสินค้าแล้ว');
+          ui.modal=null;
+          await fetchProducts();
+          render();
+        } else {
+          showToast('❌ '+data.error,'err');
+        }
+      }
+    }, discontinued?'✓ คืนสถานะ → กลับมาขาย':'🚫 เลิกขายสินค้านี้')
   ));
 
   modal.appendChild(form);
@@ -1993,6 +2031,58 @@ function AddProductModal() {
   modal.appendChild(form);
   overlay.appendChild(modal);
   return overlay;
+}
+
+// ===== DISCONTINUED PAGE =====
+function DiscontinuedPage() {
+  const list = getDiscontinued();
+
+  return h('div',{className:'card',style:{overflow:'hidden'}},
+    h('div',{style:{padding:'14px 16px',borderBottom:'1px solid #e2e8f0',display:'flex',alignItems:'center',justifyContent:'space-between'}},
+      h('div',{style:{display:'flex',alignItems:'center',gap:'8px'}},
+        h('span',{style:{fontSize:'16px'}},'🚫'),
+        h('div',{style:{fontWeight:700,fontSize:'14px'}},'สินค้าเลิกขาย'),
+        h('span',{style:{background:'#f1f5f9',color:'#64748b',borderRadius:'20px',padding:'1px 8px',fontSize:'12px',fontWeight:600}},list.length+' รายการ')
+      )
+    ),
+    list.length===0?h('div',{className:'empty-state'},
+      h('div',{className:'empty-icon'},'✅'),
+      h('div',{style:{fontWeight:600}},'ไม่มีสินค้าที่เลิกขาย')
+    ):
+    h('div',{style:{overflowX:'auto'}},
+      h('table',{},
+        h('thead',{style:{position:'sticky',top:0,zIndex:5}},
+          h('tr',{},
+            h('th',{style:{width:'140px'}},'รหัส'),
+            h('th',{},'สินค้า'),
+            h('th',{className:'desktop-only'},'ประเภท'),
+            h('th',{style:{textAlign:'right'}},'สต็อกเหลือ'),
+            h('th',{style:{width:'120px'}},'')
+          )
+        ),
+        h('tbody',{},...list.map(p=>h('tr',{style:{opacity:0.6}},
+          h('td',{style:{fontFamily:'monospace',fontSize:'13px',fontWeight:600,color:'#64748b'}},p.code||p.id),
+          h('td',{className:'product-cell'},
+            h('div',{className:'product-name',style:{textDecoration:'line-through',color:'#94a3b8'}},p.name),
+            h('div',{className:'product-meta'},p.size||'')
+          ),
+          h('td',{className:'desktop-only',style:{fontSize:'12px',color:'#94a3b8'}},p.type||'-'),
+          h('td',{style:{textAlign:'right',color:'#94a3b8',fontSize:'13px'}},fmtNum(parseFloat(p.stock)||0,2)),
+          canEdit()?h('td',{},
+            h('button',{className:'btn btn-success',style:{fontSize:'12px',padding:'4px 10px'},
+              onClick:async()=>{
+                if(!confirm('คืนสถานะ "'+p.name+'" กลับมาขาย?')) return;
+                const url = API_URL+"?"+new URLSearchParams({action:'toggleProductStatus',targetId:p.id,newStatus:'OK'});
+                const res = await fetch(url);
+                const data = await res.json();
+                if(data.success){showToast('✓ คืนสถานะสำเร็จ');await fetchProducts();render();}
+                else showToast('❌ '+data.error,'err');
+              }},'✓ คืนสถานะ')
+          ):h('td',{})
+        )))
+      )
+    )
+  );
 }
 
 // ===== ADMIN PAGE =====
@@ -2780,6 +2870,7 @@ function render() {
   else if(ui.view==='history') content.appendChild(History());
   else if(ui.view==='customers') content.appendChild(Customers());
   else if(ui.view==='alerts') content.appendChild(Alerts());
+  else if(ui.view==='discontinued') content.appendChild(DiscontinuedPage());
   else if(ui.view==='admin') content.appendChild(AdminPage());
   else if(ui.view==='addproduct') { ui.modal='addProduct'; ui.view='stock'; content.appendChild(StockList()); }
 
