@@ -515,6 +515,7 @@ function badge(status) {
 // ===== SIDEBAR =====
 function Sidebar() {
   const stats=getStats(), alert=stats.low+stats.out;
+  const isViewer = currentUser && currentUser.role === 'viewer';
   const items=[
     {k:'dashboard',i:'📊',l:'Dashboard'},
     {k:'stock',i:'📦',l:'สต็อกสินค้า', badge:stats.total},
@@ -525,8 +526,8 @@ function Sidebar() {
     {k:'history',i:'🕐',l:'ประวัติ', badge:transactions.length||null},
     {k:'customers',i:'👥',l:'ลูกค้า / Lot'},
     ...(canEdit()?[{k:'addproduct',i:'➕',l:'เพิ่มสินค้าใหม่'}]:[]),
-    {k:'alerts',i:'⚠',l:'แจ้งเตือน'},
-    {k:'discontinued',i:'🚫',l:'สินค้าเลิกขาย', badge:getDiscontinued().length||null, badgeColor:'#64748b'},
+    ...(isViewer?[]:[{k:'alerts',i:'⚠',l:'แจ้งเตือน'}]),
+    ...(isViewer?[]:[{k:'discontinued',i:'🚫',l:'สินค้าเลิกขาย', badge:getDiscontinued().length||null, badgeColor:'#64748b'}]),
     ...(isAdmin()?[{k:'admin',i:'⚙️',l:'จัดการผู้ใช้'}]:[]),
   ];
 
