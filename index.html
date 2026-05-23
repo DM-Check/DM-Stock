@@ -170,7 +170,14 @@ async function markAsRead() {
   if (!currentUser) return;
   myLastRead = Date.now();
   unreadCount = 0;
-  render(); // อัปเดต badge ทันที
+  // อัปเดต badge ใน sidebar
+  const badgeEl = document.getElementById('history-badge');
+  if (badgeEl) { badgeEl.textContent = ''; badgeEl.style.display='none'; }
+  // อัปเดต highlight ใน tbody
+  const tbody = document.getElementById('history-tbody');
+  if (tbody) renderHistoryTbody(tbody);
+  else render();
+  // บันทึกลง Sheet
   try {
     const url = API_URL + "?" + new URLSearchParams({ action: 'updateLastRead', name: currentUser.name });
     await fetch(url);
@@ -609,7 +616,13 @@ function Sidebar() {
         className:'nav-item'+(ui.view===it.k?' active':''),
         onClick:()=>{
           ui.view=it.k;mobileMenuOpen=false;
-          if(it.k==='history') { fetchTransactions(); markAsRead(); }
+          if(it.k==='history') {
+            fetchTransactions();
+          }
+          // ถ้าออกจากหน้าประวัติ → markAsRead
+          if(ui.view==='history' && it.k!=='history') {
+            markAsRead();
+          }
           if(it.k==='admin') fetchAllUsers();
           render();
         }
@@ -1557,12 +1570,12 @@ function DetailModal() {
         ))
       ),
       h('div',{style:{display:'flex',gap:'8px',marginBottom:ptx.length>0?'14px':'0'}},
-        h('button',{className:'btn btn-success',style:{flex:1,justifyContent:'center',padding:'9px'},
+        canEdit()?h('button',{className:'btn btn-success',style:{flex:1,justifyContent:'center',padding:'9px'},
           onClick:()=>{ui.txForm={date:td(),qty:'',unit:'sqm',note:'',location:'',lot:'',project:''};ui.modal='in';render();}
-        },'⬇ รับเข้า'),
-        h('button',{className:'btn btn-danger',style:{flex:1,justifyContent:'center',padding:'9px',opacity:stock<=0?0.5:1},disabled:stock<=0,
+        },'⬇ รับเข้า'):null,
+        canEdit()?h('button',{className:'btn btn-danger',style:{flex:1,justifyContent:'center',padding:'9px',opacity:stock<=0?0.5:1},disabled:stock<=0,
           onClick:()=>{if(stock>0){ui.txForm={date:td(),qty:'',unit:'sqm',note:'',location:'',lot:'',project:''};ui.modal='out';render();}}
-        },'⬆ จ่ายออก')
+        },'⬆ จ่ายออก'):null
       ),
       // === Lot table ===
       (() => {
