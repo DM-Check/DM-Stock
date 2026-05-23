@@ -1,0 +1,2814 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DM Stock Control</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'IBM Plex Sans Thai','Inter',sans-serif;background:#f1f5f9;color:#0f172a;min-height:100vh;font-size:14px}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-track{background:#f1f5f9}
+  ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
+  ::-webkit-scrollbar-thumb:hover{background:#94a3b8}
+
+  .card{background:white;border-radius:10px;box-shadow:0 1px 2px rgba(0,0,0,.04),0 0 0 1px rgba(15,23,42,.06)}
+  .btn{border:none;cursor:pointer;font-family:inherit;font-size:13px;border-radius:7px;padding:7px 14px;font-weight:500;transition:all .12s;display:inline-flex;align-items:center;gap:6px;line-height:1;white-space:nowrap}
+  .btn:hover{filter:brightness(.96)}
+  .btn:active{transform:scale(.98)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn-primary{background:#0f172a;color:white}
+  .btn-primary:hover{background:#1e293b}
+  .btn-success{background:#059669;color:white}
+  .btn-success:hover{background:#047857}
+  .btn-danger{background:#dc2626;color:white}
+  .btn-danger:hover{background:#b91c1c}
+  .btn-ghost{background:#f1f5f9;color:#475569}
+  .btn-ghost:hover{background:#e2e8f0}
+  .btn-outline{background:white;color:#475569;border:1px solid #e2e8f0}
+  .btn-outline:hover{background:#f8fafc;border-color:#cbd5e1}
+
+  input,select,textarea{font-family:inherit;font-size:13px;outline:none}
+  .input{width:100%;padding:8px 12px;border:1px solid #e2e8f0;border-radius:7px;transition:all .12s;background:white;color:#0f172a;font-weight:500}
+  .input:focus{border-color:#0f172a;box-shadow:0 0 0 3px rgba(15,23,42,.08)}
+  .input::placeholder{color:#94a3b8;font-weight:400}
+
+  .badge{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;line-height:1.5;text-transform:uppercase;letter-spacing:.03em}
+  .badge-dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(3px);animation:fadeIn .15s ease}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .modal{background:white;border-radius:12px;width:100%;max-width:520px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);animation:slideUp .2s ease}
+  @keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:11px 20px;border-radius:8px;font-size:13px;font-weight:500;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.2);animation:toastIn .25s ease;color:white;max-width:90vw}
+  @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(14px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+  .spinner{width:32px;height:32px;border:3px solid #e2e8f0;border-top-color:#0f172a;border-radius:50%;animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* Sidebar nav */
+  .sidebar{background:#0f172a;color:#cbd5e1;width:220px;min-height:100vh;display:flex;flex-direction:column;flex-shrink:0;position:sticky;top:0;height:100vh}
+  .nav-item{padding:10px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500;border-left:3px solid transparent;transition:all .12s}
+  .nav-item:hover{background:rgba(255,255,255,.04);color:white}
+  .nav-item.active{background:rgba(14,165,233,.1);color:white;border-left-color:#0ea5e9}
+  .nav-icon{font-size:16px;width:20px;text-align:center}
+
+  /* Table */
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead tr{background:#f8fafc;border-bottom:1px solid #e2e8f0}
+  th{padding:9px 12px;text-align:left;font-weight:600;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+  td{padding:9px 12px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+  tbody tr{transition:background .08s}
+  tbody tr:hover{background:#f8fafc}
+
+  .stock-bar{display:flex;align-items:center;gap:8px}
+  .stock-num{font-weight:700;font-variant-numeric:tabular-nums}
+
+  /* KPI cards */
+  .kpi-card{padding:16px;border-radius:10px;background:white;border:1px solid #e2e8f0;position:relative;overflow:hidden}
+  .kpi-label{font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  .kpi-value{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1;margin-top:6px;color:#0f172a}
+  .kpi-sub{font-size:11px;color:#94a3b8;margin-top:4px;font-weight:500}
+  .kpi-accent{position:absolute;left:0;top:0;bottom:0;width:3px}
+
+  /* Topbar */
+  .topbar{background:white;border-bottom:1px solid #e2e8f0;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:30}
+
+  /* Mobile */
+  @media(max-width:900px){
+    .sidebar{position:fixed;left:-220px;z-index:100;transition:left .25s}
+    .sidebar.open{left:0;box-shadow:0 0 40px rgba(0,0,0,.3)}
+    .mobile-menu-btn{display:flex!important}
+    .desktop-only{display:none!important}
+    .stat-grid{grid-template-columns:repeat(2,1fr)!important}
+  }
+  .mobile-menu-btn{display:none;background:#f1f5f9;border:none;padding:8px;border-radius:6px;cursor:pointer;align-items:center;justify-content:center}
+  .mobile-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:99}
+  .mobile-overlay.active{display:block}
+
+  .product-cell{min-width:0;max-width:380px}
+  .product-name{font-weight:500;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .product-meta{font-size:11px;color:#64748b;margin-top:2px;font-family:'Inter',monospace;font-weight:400}
+
+  .filter-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 16px;border-bottom:1px solid #e2e8f0;background:#fafbfc}
+
+  .empty-state{padding:60px 20px;text-align:center;color:#94a3b8}
+  .empty-icon{font-size:42px;margin-bottom:10px;opacity:.5}
+
+  .field-label{font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px}
+
+  .progress-bar{height:4px;background:#f1f5f9;border-radius:2px;overflow:hidden}
+  .progress-fill{height:100%;border-radius:2px;transition:width .4s ease}
+
+  .pulse{animation:pulse 1.5s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+  .tab-pill{padding:6px 14px;border:1px solid #e2e8f0;background:white;border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;color:#64748b;transition:all .12s;font-family:inherit}
+  .tab-pill:hover{border-color:#cbd5e1}
+  .tab-pill.active{background:#0f172a;color:white;border-color:#0f172a}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+// ===== CONFIG =====
+const API_URL = "https://script.google.com/macros/s/AKfycbzGKiUWRH-QQwvHlmACd75WHDasIBu6MCP2p_8yVPxV9kVBXc5yo0BQwY_E-Tvk9cNehw/exec";
+const SESSION_KEY = 'dm_session_v1';
+const SESSION_DAYS = 30;
+
+// ===== AUTH =====
+let currentUser = null; // { name, email, role }
+let userNames = [];     // รายชื่อสำหรับ dropdown
+let allUsers = [];      // เฉพาะ admin
+
+function loadSession() {
+  try {
+    const s = localStorage.getItem(SESSION_KEY);
+    if (!s) return null;
+    const { user, expires } = JSON.parse(s);
+    if (new Date() > new Date(expires)) {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    return user;
+  } catch(e) { return null; }
+}
+
+function saveSession(user) {
+  const expires = new Date();
+  expires.setDate(expires.getDate() + SESSION_DAYS);
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ user, expires }));
+}
+
+function clearSession() {
+  localStorage.removeItem(SESSION_KEY);
+}
+
+function canEdit() { return currentUser && (currentUser.role === 'admin' || currentUser.role === 'poweruser'); }
+function isAdmin() { return currentUser && currentUser.role === 'admin'; }
+
+async function fetchUserNames() {
+  try {
+    const res = await fetch(API_URL + "?action=getUserNames");
+    const data = await res.json();
+    if (data.success) userNames = data.names;
+  } catch(e) {}
+}
+
+async function fetchAllUsers() {
+  try {
+    const res = await fetch(API_URL + "?action=getUsers");
+    const data = await res.json();
+    if (data.success) allUsers = data.users;
+  } catch(e) {}
+}
+
+async function apiLogin(name, password) {
+  const url = API_URL + "?" + new URLSearchParams({ action: 'login', name, password });
+  const res = await fetch(url);
+  return await res.json();
+}
+
+async function apiAddUser(name, email, password, role) {
+  const url = API_URL + "?" + new URLSearchParams({ action: 'addUser', newName: name, newEmail: email, newPassword: password, newRole: role });
+  const res = await fetch(url);
+  return await res.json();
+}
+
+async function apiUpdateUser(targetName, newPassword, newRole) {
+  const url = API_URL + "?" + new URLSearchParams({ action: 'updateUser', targetName, newPassword: newPassword||'', newRole: newRole||'' });
+  const res = await fetch(url);
+  return await res.json();
+}
+
+async function apiDeleteUser(targetName) {
+  const url = API_URL + "?" + new URLSearchParams({ action: 'deleteUser', targetName });
+  const res = await fetch(url);
+  return await res.json();
+}
+
+// ===== STATE =====
+let products = [];
+let transactions = [];
+let lots = [];
+let projects = [];
+let lastSync = null;
+let isLoading = false;
+let isLoadingTx = false;
+let loadError = null;
+let isSaving = false;
+let mobileMenuOpen = false;
+
+let ui = {
+  view: 'dashboard',
+  search: '',
+  filterType: 'ทั้งหมด',
+  filterStatus: 'ทั้งหมด',
+  sortBy: 'name',
+  modal: null,
+  selectedId: null,
+  txForm: { date: td(), qty: '', unit: 'sqm', note: '', location: '', lot: '', project: '' },
+  toast: null,
+  toastTimer: null,
+  historyFilter: 'all',
+  historyType: 'all',
+  custView: 'customer', // customer / lot / product
+  custSelected: null,
+};
+
+// ===== API =====
+async function fetchProducts() {
+  isLoading = true; loadError = null; render();
+  try {
+    const res = await fetch(API_URL + "?action=getProducts");
+    const data = await res.json();
+    if (data.success && data.products) {
+      products = data.products.filter(p => p.id && p.name).map(p => ({
+        ...p,
+        imageUrl: p.imageUrl || p.image || ''
+      }));
+      lastSync = new Date();
+    } else throw new Error(data.error || 'ดึงข้อมูลไม่สำเร็จ');
+  } catch(e) { loadError = e.message; }
+  isLoading = false; render();
+}
+
+async function fetchTransactions() {
+  isLoadingTx = true;
+  // อัปเดต count label ถ้าอยู่หน้าประวัติ
+  const countEl = document.getElementById('history-count');
+  if (countEl) countEl.textContent = '⏳ กำลังโหลด...';
+  try {
+    const res = await fetch(API_URL + "?action=getTransactions");
+    const data = await res.json();
+    if (data.success && data.transactions) {
+      transactions = data.transactions;
+      transactions.sort((a, b) => {
+        const tA = a.timestamp || 0;
+        const tB = b.timestamp || 0;
+        if (tA && tB && tA !== tB) return tB - tA;
+        const dA = new Date(a.date).getTime();
+        const dB = new Date(b.date).getTime();
+        if (dB !== dA) return dB - dA;
+        if (a.type !== b.type) return a.type === 'in' ? -1 : 1;
+        return (b.rowIndex||0) - (a.rowIndex||0);
+      });
+    }
+  } catch(e) { console.error('Load tx failed:', e); }
+  isLoadingTx = false;
+
+  // ถ้าหน้าประวัติเปิดอยู่ → อัปเดต tbody โดยตรง ไม่ต้อง render ใหม่ทั้งหน้า
+  const tbody = document.getElementById('history-tbody');
+  const countEl2 = document.getElementById('history-count');
+  if (tbody) {
+    renderHistoryTbody(tbody);
+    if (countEl2) countEl2.textContent = getFilteredTx().length.toLocaleString() + ' รายการ';
+  } else {
+    render(); // ถ้าไม่มี tbody ให้ render ใหม่ทั้งหน้า (เช่น ยังแสดง empty state)
+  }
+}
+
+async function fetchLots() {
+  try {
+    const res = await fetch(API_URL + "?action=getLots");
+    const data = await res.json();
+    if (data.success && data.lots) {
+      lots = data.lots;
+    }
+  } catch(e) { console.error('Load lots failed:', e); }
+}
+
+async function fetchProjects() {
+  try {
+    const res = await fetch(API_URL + "?action=getProjects");
+    const data = await res.json();
+    if (data.success && data.projects) {
+      projects = data.projects;
+    }
+  } catch(e) { console.error('Load projects failed:', e); }
+}
+
+async function apiSaveTx(type, p, sqm) {
+  const url = API_URL + "?" + new URLSearchParams({
+    action: type === 'in' ? 'addIn' : 'addOut',
+    id: p.id, code: p.code || '', name: p.name || '',
+    sqm: sqm, date: ui.txForm.date,
+    note: ui.txForm.note || '', location: ui.txForm.location || '',
+    pcsPerBox: p.pcsPerBox || 1, sqmPerPc: p.sqmPerPc || 0,
+    size: p.size || '',
+    lot: ui.txForm.lot || '',
+    project: ui.txForm.project || ''
+  });
+  const res = await fetch(url);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || 'บันทึกไม่สำเร็จ');
+}
+
+function getLotsForProduct(productId) {
+  return lots.filter(l => String(l.productId).trim() === String(productId).trim() && l.stock > 0);
+}
+
+// ===== HELPERS =====
+function td() { return new Date().toISOString().split('T')[0]; }
+// แปลง Google Drive URL เป็น thumbnail URL
+function driveThumb(url, size=300) {
+  if (!url) return null;
+  url = String(url).trim();
+  if (!url.startsWith('http')) return null;
+  // แบบ /file/d/ID/view
+  let m = url.match(/\/file\/d\/([^\/\?]+)/);
+  if (m) return 'https://drive.google.com/thumbnail?id='+m[1]+'&sz=w'+size;
+  // แบบ id=ID
+  m = url.match(/[?&]id=([^&]+)/);
+  if (m) return 'https://drive.google.com/thumbnail?id='+m[1]+'&sz=w'+size;
+  // ถ้าเป็น thumbnail อยู่แล้ว
+  if (url.includes('thumbnail')) return url;
+  return null;
+}
+
+async function apiUploadImage(productId, fileName, mimeType, base64) {
+  // ใช้ POST เพราะ base64 ยาวเกินกว่าจะส่งผ่าน URL
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      action: 'uploadImage',
+      productId, fileName, mimeType, base64
+    }).toString()
+  });
+  return await res.json();
+}
+
+function fmtDate(d) {
+  if (!d) return '-';
+  const dt = new Date(d);
+  if (isNaN(dt)) return d;
+  return dt.toLocaleDateString('th-TH', { day:'2-digit', month:'short', year:'2-digit' });
+}
+function fmtNum(n, decimals=2) {
+  if (n === null || n === undefined || isNaN(n)) return '0';
+  return Number(n).toLocaleString('th-TH', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+function getStatus(p) {
+  const s = parseFloat(p.stock)||0, m = parseFloat(p.minQty)||5;
+  return s <= 0 ? 'out' : s < m ? 'low' : 'ok';
+}
+function statusInfo(s) {
+  if (s==='ok') return { bg:'#dcfce7', txt:'#166534', dot:'#22c55e', label:'OK' };
+  if (s==='low') return { bg:'#fef3c7', txt:'#92400e', dot:'#f59e0b', label:'ใกล้หมด' };
+  return { bg:'#fee2e2', txt:'#991b1b', dot:'#ef4444', label:'หมด' };
+}
+function calcSqm(qty, unit, p) {
+  const n = parseFloat(qty); if (!n || n<=0) return 0;
+  if (unit==='sqm') return n;
+  if (unit==='box') return n*(parseFloat(p.pcsPerBox)||1)*(parseFloat(p.sqmPerPc)||0);
+  return n*(parseFloat(p.sqmPerPc)||0);
+}
+function showToast(msg, type='ok') {
+  if (ui.toastTimer) clearTimeout(ui.toastTimer);
+  ui.toast = {msg, type};
+  render();
+  ui.toastTimer = setTimeout(()=>{ ui.toast=null; render(); }, 3500);
+}
+function getFiltered() {
+  let list = products.map(p=>({...p, stock:parseFloat(p.stock)||0, status:getStatus(p)}));
+  if (ui.search) {
+    const q = ui.search.toLowerCase();
+    list = list.filter(p=>{
+      const fields=[p.name,p.code,p.id,p.type];
+      return fields.some(f=>String(f||'').toLowerCase().includes(q));
+    });
+  }
+  if (ui.filterType!=='ทั้งหมด') list=list.filter(p=>p.type===ui.filterType);
+  if (ui.filterStatus!=='ทั้งหมด') {
+    const map={'ok':'ok','low':'low','out':'out'};
+    list=list.filter(p=>p.status===map[ui.filterStatus]);
+  }
+  return list.sort((a,b)=>{
+    if(ui.sortBy==='stock_asc') return a.stock-b.stock;
+    if(ui.sortBy==='stock_desc') return b.stock-a.stock;
+    if(ui.sortBy==='status'){const o={'out':0,'low':1,'ok':2};return o[a.status]-o[b.status];}
+    if(ui.sortBy==='code') return (a.code||'').localeCompare(b.code||'');
+    return (a.name||'').localeCompare(b.name||'','th');
+  });
+}
+function getStats() {
+  const all=products.map(p=>({...p,status:getStatus(p)}));
+  return {
+    total: all.length,
+    ok: all.filter(p=>p.status==='ok').length,
+    low: all.filter(p=>p.status==='low').length,
+    out: all.filter(p=>p.status==='out').length,
+    sqm: all.reduce((s,p)=>s+(parseFloat(p.stock)||0),0)
+  };
+}
+function getTypes() {
+  return ['ทั้งหมด', ...Array.from(new Set(products.map(p=>p.type).filter(Boolean))).sort()];
+}
+function getTypeStats() {
+  const map={};
+  products.forEach(p=>{
+    const st=getStatus(p);
+    if(!map[p.type]) map[p.type]={count:0,sqm:0,low:0,out:0};
+    map[p.type].count++;
+    map[p.type].sqm+=parseFloat(p.stock)||0;
+    if(st==='low') map[p.type].low++;
+    if(st==='out') map[p.type].out++;
+  });
+  return Object.entries(map).sort((a,b)=>b[1].sqm-a[1].sqm);
+}
+function getSelected() { return ui.selectedId ? products.find(p=>p.id===ui.selectedId) : null; }
+function getProductTx(productId) {
+  return transactions.filter(t=>t.productId===productId || t.productCode===productId);
+}
+function getFilteredTx() {
+  let list = transactions;
+  if (ui.historyType !== 'all') list = list.filter(t=>t.type===ui.historyType);
+  if (ui.historyFilter === 'today') {
+    const today = td();
+    list = list.filter(t=>String(t.date).startsWith(today));
+  } else if (ui.historyFilter === 'week') {
+    const wk = new Date(); wk.setDate(wk.getDate()-7);
+    list = list.filter(t=>new Date(t.date)>=wk);
+  } else if (ui.historyFilter === 'month') {
+    const mn = new Date(); mn.setMonth(mn.getMonth()-1);
+    list = list.filter(t=>new Date(t.date)>=mn);
+  }
+  if (ui.search) {
+    const q = ui.search.toLowerCase();
+    list = list.filter(t=>{
+      const fields = [t.productId, t.productCode, t.note, t.location, t.lot, t.project];
+      return fields.some(f => String(f||'').toLowerCase().includes(q));
+    });
+  }
+  return list;
+}
+
+// ===== TRANSACTION =====
+async function doTx(type) {
+  const p = getSelected(); if (!p) return;
+  const stock = parseFloat(p.stock)||0;
+  const sqm = calcSqm(ui.txForm.qty, ui.txForm.unit, p);
+  if (sqm<=0) { showToast('กรุณากรอกจำนวนที่ถูกต้อง','err'); return; }
+  if (type==='out' && stock<sqm) { showToast('สต็อกไม่เพียงพอ! คงเหลือ '+fmtNum(stock,2)+' ตร.ม','err'); return; }
+  isSaving=true;
+  try {
+    await apiSaveTx(type, p, sqm);
+    const savedDate = ui.txForm.date;
+    isSaving=false;
+    ui.modal=null;
+    ui.txForm={date:savedDate,qty:'',unit:'sqm',note:'',location:'',lot:'',project:''};
+    showToast(type==='in'?'✓ รับสินค้าเข้าสำเร็จ':'✓ จ่ายสินค้าออกสำเร็จ');
+    render();
+    Promise.all([fetchProducts(), fetchTransactions(), fetchLots(), fetchProjects()]);
+  } catch(e) {
+    isSaving=false; showToast('❌ '+e.message,'err'); render();
+  }
+}
+
+// ===== DOM =====
+function h(tag, attrs, ...ch) {
+  const el=document.createElement(tag);
+  if(attrs) Object.entries(attrs).forEach(([k,v])=>{
+    if(k==='className') el.className=v;
+    else if(k.startsWith('on')) el.addEventListener(k.slice(2).toLowerCase(),v);
+    else if(k==='style'&&typeof v==='object') Object.assign(el.style,v);
+    else if(k==='disabled'){if(v)el.disabled=true;}
+    else if(v!=null) el.setAttribute(k,v);
+  });
+  ch.flat(Infinity).forEach(c=>{ if(c==null||c===false)return; el.appendChild(typeof c==='string'||typeof c==='number'?document.createTextNode(String(c)):c); });
+  return el;
+}
+function sel(options, value, onChange, isPairs=false) {
+  const el=h('select',{className:'input',style:{width:'auto',cursor:'pointer'},onChange:e=>onChange(e.target.value)});
+  options.forEach(o=>{
+    const v=isPairs?o[0]:o, l=isPairs?o[1]:o;
+    const opt=document.createElement('option');
+    opt.value=v; opt.textContent=l; if(v===value)opt.selected=true;
+    el.appendChild(opt);
+  });
+  return el;
+}
+function badge(status) {
+  const s=statusInfo(status);
+  return h('span',{className:'badge',style:{background:s.bg,color:s.txt}},
+    h('span',{className:'badge-dot',style:{background:s.dot}}), s.label
+  );
+}
+
+// ===== SIDEBAR =====
+function Sidebar() {
+  const stats=getStats(), alert=stats.low+stats.out;
+  const items=[
+    {k:'dashboard',i:'📊',l:'Dashboard'},
+    {k:'stock',i:'📦',l:'สต็อกสินค้า', badge:stats.total},
+    ...(canEdit()?[
+      {k:'in',i:'⬇',l:'รับสินค้าเข้า'},
+      {k:'out',i:'⬆',l:'จ่ายสินค้าออก'},
+    ]:[]),
+    {k:'history',i:'🕐',l:'ประวัติ', badge:transactions.length||null},
+    {k:'customers',i:'👥',l:'ลูกค้า / Lot'},
+    {k:'alerts',i:'⚠',l:'แจ้งเตือน', badge:alert||null, badgeColor:'#ef4444'},
+    ...(canEdit()?[{k:'addproduct',i:'➕',l:'เพิ่มสินค้าใหม่'}]:[]),
+    ...(isAdmin()?[{k:'admin',i:'⚙️',l:'จัดการผู้ใช้'}]:[]),
+  ];
+
+  const roleBadge = currentUser ? {
+    admin: {label:'Admin', bg:'#fef3c7', txt:'#92400e'},
+    poweruser: {label:'Power User', bg:'#dbeafe', txt:'#1e40af'},
+    viewer: {label:'Viewer', bg:'#f1f5f9', txt:'#64748b'}
+  }[currentUser.role] : null;
+
+  return h('aside',{className:'sidebar'+(mobileMenuOpen?' open':'')},
+    h('div',{style:{padding:'18px 16px',borderBottom:'1px solid rgba(255,255,255,.08)'}},
+      h('div',{style:{display:'flex',alignItems:'center',gap:'10px'}},
+        h('div',{style:{width:'34px',height:'34px',background:'linear-gradient(135deg,#0ea5e9,#38bdf8)',borderRadius:'8px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'17px',fontWeight:700}},'▦'),
+        h('div',{},
+          h('div',{style:{color:'white',fontWeight:700,fontSize:'14px'}},'DM Stock'),
+          h('div',{style:{color:'#64748b',fontSize:'11px'}},'Inventory Control')
+        )
+      )
+    ),
+    h('nav',{style:{padding:'12px 0',flex:1}},
+      ...items.map(it=>h('div',{
+        className:'nav-item'+(ui.view===it.k?' active':''),
+        onClick:()=>{
+          ui.view=it.k;mobileMenuOpen=false;
+          if(it.k==='history') fetchTransactions();
+          if(it.k==='admin') fetchAllUsers();
+          render();
+        }
+      },
+        h('span',{className:'nav-icon'},it.i),
+        h('span',{style:{flex:1}},it.l),
+        it.badge?h('span',{style:{background:it.badgeColor||'rgba(255,255,255,.1)',color:it.badgeColor?'white':'#cbd5e1',padding:'1px 7px',borderRadius:'10px',fontSize:'11px',fontWeight:600}},it.badge):null
+      ))
+    ),
+    // User info + logout
+    currentUser?h('div',{style:{padding:'12px 16px',borderTop:'1px solid rgba(255,255,255,.08)'}},
+      h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'8px'}},
+        h('div',{},
+          h('div',{style:{color:'white',fontSize:'13px',fontWeight:600}},currentUser.name),
+          roleBadge?h('span',{style:{background:roleBadge.bg,color:roleBadge.txt,borderRadius:'4px',padding:'1px 6px',fontSize:'10px',fontWeight:600,marginTop:'3px',display:'inline-block'}},roleBadge.label):null
+        ),
+        h('button',{className:'btn',style:{background:'rgba(239,68,68,.15)',color:'#fca5a5',padding:'4px 10px',fontSize:'11px'},
+          onClick:()=>{
+            if(confirm('ออกจากระบบ?')){
+              clearSession(); currentUser=null; render();
+            }
+          }},'ออก')
+      ),
+      h('div',{style:{display:'flex',alignItems:'center',gap:'5px',fontSize:'11px',color:'#64748b'}},
+        h('span',{style:{width:'6px',height:'6px',borderRadius:'50%',background:lastSync?'#22c55e':'#f59e0b',display:'inline-block'}}),
+        lastSync?'อัปเดต '+lastSync.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'Not synced'
+      )
+    ):null
+  );
+}
+
+// ===== TOPBAR =====
+function Topbar() {
+  const titles={dashboard:'Dashboard',stock:'สต็อกสินค้า',in:'รับสินค้าเข้า',out:'จ่ายสินค้าออก',history:'ประวัติการเคลื่อนไหว',customers:'ลูกค้า / Lot / สินค้า',alerts:'แจ้งเตือนสินค้า',admin:'จัดการผู้ใช้',addproduct:'เพิ่มสินค้าใหม่'};
+  return h('div',{className:'topbar'},
+    h('div',{style:{display:'flex',alignItems:'center',gap:'12px'}},
+      h('button',{className:'mobile-menu-btn',onClick:()=>{mobileMenuOpen=!mobileMenuOpen;render();}},'☰'),
+      h('h1',{style:{fontSize:'17px',fontWeight:700,color:'#0f172a'}},titles[ui.view]||'')
+    ),
+    h('div',{style:{display:'flex',alignItems:'center',gap:'8px'}},
+      h('button',{className:'btn btn-outline',onClick:()=>{fetchProducts();fetchTransactions();fetchLots();fetchProjects();}},
+        h('span',{style:{display:'inline-block',animation:(isLoading||isLoadingTx)?'spin .7s linear infinite':'none'}},'🔄'),
+        h('span',{className:'desktop-only'},'Sync')
+      )
+    )
+  );
+}
+
+// ===== EMPTY/ERROR =====
+function EmptyOrError() {
+  if (loadError) return h('div',{className:'card empty-state'},
+    h('div',{className:'empty-icon'},'⚠️'),
+    h('div',{style:{fontWeight:700,fontSize:'15px',marginBottom:'6px',color:'#dc2626'}},'เชื่อมต่อ Google Sheets ไม่สำเร็จ'),
+    h('div',{style:{color:'#64748b',fontSize:'13px',marginBottom:'14px'}},loadError),
+    h('button',{className:'btn btn-primary',onClick:()=>fetchProducts()},'🔄 ลองใหม่')
+  );
+  return h('div',{className:'card empty-state'},
+    h('div',{className:'empty-icon'},'📦'),
+    h('div',{style:{fontWeight:700,fontSize:'15px',marginBottom:'6px'}},'ยังไม่มีข้อมูล'),
+    h('div',{style:{color:'#64748b',fontSize:'13px',marginBottom:'14px'}},'กด Sync เพื่อดึงข้อมูลจาก Google Sheets'),
+    h('button',{className:'btn btn-primary',onClick:()=>fetchProducts()},'🔄 Sync ข้อมูล')
+  );
+}
+
+// ===== DASHBOARD =====
+function Dashboard() {
+  if (loadError||products.length===0) return EmptyOrError();
+  const stats=getStats();
+  const low=products.map(p=>({...p,stock:parseFloat(p.stock)||0,status:getStatus(p)})).filter(p=>p.status!=='ok').sort((a,b)=>a.stock-b.stock).slice(0,10);
+  const recent=transactions.slice(0,8);
+  const typeStats=getTypeStats();
+
+  const kpis=[
+    {label:'สินค้าทั้งหมด',value:stats.total.toLocaleString(),sub:'รายการ',color:'#0ea5e9',action:()=>{ui.view='stock';ui.filterStatus='ทั้งหมด';render();}},
+    {label:'สต็อกปกติ',value:stats.ok.toLocaleString(),sub:fmtNum(stats.ok/Math.max(stats.total,1)*100,0)+'% ของทั้งหมด',color:'#10b981',action:()=>{ui.view='stock';ui.filterStatus='ok';render();}},
+    {label:'ใกล้หมด',value:stats.low.toLocaleString(),sub:'ต้องเติม',color:'#f59e0b',action:()=>{ui.view='stock';ui.filterStatus='low';render();}},
+    {label:'หมดสต็อก',value:stats.out.toLocaleString(),sub:'ต้องสั่งซื้อ',color:'#ef4444',action:()=>{ui.view='stock';ui.filterStatus='out';render();}},
+    {label:'สต็อกรวม',value:fmtNum(stats.sqm,1),sub:'ตร.ม',color:'#8b5cf6',action:()=>{ui.view='stock';ui.filterStatus='ทั้งหมด';ui.sortBy='stock_desc';render();}},
+  ];
+
+  return h('div',{style:{display:'flex',flexDirection:'column',gap:'14px'}},
+    // KPI Grid
+    h('div',{className:'stat-grid',style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:'10px'}},
+      ...kpis.map(k=>{
+        const card = h('div',{className:'kpi-card',style:{cursor:'pointer',transition:'all .15s'},
+          onClick:k.action
+        },
+          h('div',{className:'kpi-accent',style:{background:k.color}}),
+          h('div',{className:'kpi-label'},k.label),
+          h('div',{className:'kpi-value'},k.value),
+          h('div',{className:'kpi-sub'},k.sub)
+        );
+        card.addEventListener('mouseenter',()=>{card.style.transform='translateY(-2px)';card.style.boxShadow='0 4px 12px rgba(0,0,0,.08)';});
+        card.addEventListener('mouseleave',()=>{card.style.transform='';card.style.boxShadow='';});
+        return card;
+      })
+    ),
+
+    // 2-column layout
+    h('div',{style:{display:'grid',gridTemplateColumns:'2fr 1fr',gap:'14px'}},
+      // Left: Low stock + Recent
+      h('div',{style:{display:'flex',flexDirection:'column',gap:'14px',minWidth:0}},
+        low.length>0?h('div',{className:'card'},
+          h('div',{style:{padding:'12px 16px',borderBottom:'1px solid #e2e8f0',display:'flex',alignItems:'center',justifyContent:'space-between'}},
+            h('div',{style:{display:'flex',alignItems:'center',gap:'8px'}},
+              h('span',{style:{fontSize:'15px'}},'⚠'),
+              h('div',{style:{fontWeight:700,fontSize:'14px'}},'สินค้าที่ต้องเติม / สั่งซื้อ')
+            ),
+            h('button',{className:'btn btn-outline',style:{fontSize:'12px',padding:'5px 10px'},onClick:()=>{ui.view='alerts';render();}},'ดูทั้งหมด →')
+          ),
+          h('table',{},
+            h('thead',{},h('tr',{},h('th',{style:{width:'130px'}},'รหัส'),h('th',{},'สินค้า'),h('th',{style:{textAlign:'right'}},'คงเหลือ'),h('th',{},'สถานะ'))),
+            h('tbody',{},...low.map(p=>h('tr',{style:{cursor:'pointer'},onClick:()=>{ui.selectedId=p.id;ui.modal='detail';render();}},
+              h('td',{style:{color:'#0f172a',fontSize:'13px',fontFamily:'monospace',fontWeight:600,whiteSpace:'nowrap'}},p.code||p.id),
+              h('td',{className:'product-cell'},h('div',{className:'product-name'},p.name)),
+              h('td',{style:{textAlign:'right'}},h('span',{className:'stock-num',style:{color:p.status==='out'?'#dc2626':'#d97706'}},fmtNum(p.stock,2))),
+              h('td',{},badge(p.status))
+            )))
+          )
+        ):null,
+
+        recent.length>0?h('div',{className:'card'},
+          h('div',{style:{padding:'12px 16px',borderBottom:'1px solid #e2e8f0',display:'flex',alignItems:'center',justifyContent:'space-between'}},
+            h('div',{style:{fontWeight:700,fontSize:'14px'}},'🕐 การเคลื่อนไหวล่าสุด'),
+            h('button',{className:'btn btn-outline',style:{fontSize:'12px',padding:'5px 10px'},onClick:()=>{ui.view='history';render();fetchTransactions();}},'ดูทั้งหมด →')
+          ),
+          h('table',{},
+            h('thead',{},h('tr',{},h('th',{},'วันที่'),h('th',{},'ประเภท'),h('th',{},'สินค้า'),h('th',{},'Lot'),h('th',{style:{textAlign:'right'}},'จำนวน'))),
+            h('tbody',{},...recent.slice(0,6).map(tx=>h('tr',{},
+              h('td',{style:{color:'#64748b',fontSize:'12px',whiteSpace:'nowrap'}},fmtDate(tx.date)),
+              h('td',{},h('span',{className:'badge',style:{background:tx.type==='in'?'#dcfce7':'#fee2e2',color:tx.type==='in'?'#166534':'#991b1b'}},tx.type==='in'?'⬇ รับเข้า':'⬆ จ่ายออก')),
+              h('td',{className:'product-cell'},h('div',{className:'product-name'},tx.productCode||tx.productId)),
+              h('td',{style:{fontFamily:'monospace',fontSize:'12px',color:tx.lot?'#0f172a':'#cbd5e1'}},tx.lot||'-'),
+              h('td',{style:{textAlign:'right',fontWeight:600,color:tx.type==='in'?'#059669':'#dc2626'}},(tx.type==='in'?'+':'-')+fmtNum(tx.sqm,3))
+            )))
+          )
+        ):null
+      ),
+
+      // Right: Type breakdown
+      h('div',{className:'card'},
+        h('div',{style:{padding:'12px 16px',borderBottom:'1px solid #e2e8f0',fontWeight:700,fontSize:'14px'}},'📊 สต็อกตามประเภท'),
+        h('div',{style:{padding:'8px',maxHeight:'560px',overflowY:'auto'}},
+          ...typeStats.map(([type,s])=>{
+            const issues=s.low+s.out;
+            return h('div',{style:{padding:'10px 12px',borderRadius:'8px',cursor:'pointer',transition:'background .1s'},
+              onMouseEnter:e=>e.currentTarget.style.background='#f8fafc',
+              onMouseLeave:e=>e.currentTarget.style.background='',
+              onClick:()=>{ui.filterType=type;ui.view='stock';render();}
+            },
+              h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:'4px'}},
+                h('div',{style:{fontWeight:600,fontSize:'13px'}},type),
+                issues>0?h('span',{style:{background:'#fee2e2',color:'#991b1b',borderRadius:'10px',padding:'1px 7px',fontSize:'10px',fontWeight:600}},issues):null
+              ),
+              h('div',{style:{display:'flex',justifyContent:'space-between',color:'#64748b',fontSize:'11px',marginBottom:'5px'}},
+                h('span',{},s.count+' รายการ'),
+                h('span',{style:{fontWeight:600,color:'#0f172a'}},fmtNum(s.sqm,1)+' ตร.ม')
+              ),
+              h('div',{className:'progress-bar'},
+                h('div',{className:'progress-fill',style:{width:Math.min(100,(s.sqm/200)*100)+'%',background:'linear-gradient(90deg,#0ea5e9,#38bdf8)'}})
+              )
+            );
+          })
+        )
+      )
+    )
+  );
+}
+
+// ===== STOCK LIST =====
+function StockList() {
+  if (loadError||products.length===0) return EmptyOrError();
+  const filtered=getFiltered();
+
+  return h('div',{className:'card',style:{overflow:'hidden'}},
+    h('div',{className:'filter-bar'},
+      h('input',{className:'input',style:{maxWidth:'300px',flex:'1'},placeholder:'🔍 ค้นหาชื่อ รหัส ประเภท...',value:ui.search,
+        onInput:e=>{ui.search=e.target.value;
+          // local filter only - no full render
+          const tbody=document.getElementById('stock-tbody');
+          if(tbody) renderStockTbody(tbody);
+        }
+      }),
+      sel(getTypes(),ui.filterType,v=>{ui.filterType=v;render();}),
+      sel([['ทั้งหมด','ทุกสถานะ'],['ok','OK'],['low','ใกล้หมด'],['out','หมด']],ui.filterStatus,v=>{ui.filterStatus=v;render();},true),
+      sel([['name','เรียงชื่อ'],['code','เรียงรหัส'],['stock_asc','น้อย→มาก'],['stock_desc','มาก→น้อย'],['status','สถานะ']],ui.sortBy,v=>{ui.sortBy=v;render();},true),
+      h('div',{style:{marginLeft:'auto',display:'flex',alignItems:'center',gap:'8px'}},
+        h('div',{style:{color:'#64748b',fontSize:'12px',fontWeight:500}},
+          filtered.length.toLocaleString()+' / '+products.length.toLocaleString()+' รายการ'
+        ),
+        canEdit()?h('button',{className:'btn btn-primary',style:{fontSize:'12px',padding:'6px 12px'},
+          onClick:()=>{ui.modal='addProduct';render();}},'+ เพิ่มสินค้า'):null
+      )
+    ),
+    h('div',{style:{overflowX:'auto',maxHeight:'calc(100vh - 200px)',overflowY:'auto'}},
+      h('table',{},
+        h('thead',{style:{position:'sticky',top:0,zIndex:5}},
+          h('tr',{},
+            h('th',{style:{width:'140px'}},'รหัส'),
+            h('th',{},'สินค้า'),
+            h('th',{className:'desktop-only'},'ประเภท'),
+            h('th',{style:{textAlign:'right'}},'สต็อก'),
+            h('th',{className:'desktop-only',style:{textAlign:'right'}},'กล่อง'),
+            h('th',{},'สถานะ')
+          )
+        ),
+        (() => {
+          const tbody = h('tbody', { id: 'stock-tbody' });
+          renderStockTbody(tbody);
+          return tbody;
+        })()
+      )
+    )
+  );
+}
+
+function renderStockTbody(tbody) {
+  const filtered = getFiltered();
+  tbody.innerHTML = '';
+  if (filtered.length === 0) {
+    tbody.appendChild(h('tr',{},h('td',{colspan:6,style:{padding:'40px',textAlign:'center',color:'#94a3b8'}},'ไม่พบสินค้า')));
+    return;
+  }
+  filtered.forEach(p => {
+    const boxes = Math.floor(p.stock/((parseFloat(p.pcsPerBox)||1)*(parseFloat(p.sqmPerPc)||1)));
+    tbody.appendChild(h('tr',{style:{cursor:'pointer'},
+      onClick:()=>{ui.selectedId=p.id;ui.modal='detail';render();}},
+      h('td',{style:{fontFamily:'monospace',color:'#0f172a',fontSize:'13px',fontWeight:600,whiteSpace:'nowrap'}},p.code||p.id),
+      h('td',{className:'product-cell'},
+        h('div',{className:'product-name'},p.name),
+        h('div',{className:'product-meta'},p.size||'')
+      ),
+      h('td',{className:'desktop-only',style:{fontSize:'12px',color:'#475569'}},p.type||'-'),
+      h('td',{style:{textAlign:'right'}},
+        h('div',{className:'stock-num',style:{color:p.status==='out'?'#dc2626':p.status==='low'?'#d97706':'#0f172a',fontSize:'14px'}},fmtNum(p.stock,2)),
+        h('div',{style:{fontSize:'10px',color:'#94a3b8',marginTop:'1px'}},'min '+(p.minQty||5))
+      ),
+      h('td',{className:'desktop-only',style:{textAlign:'right',color:'#64748b',fontSize:'12px'}},boxes.toLocaleString()),
+      h('td',{},badge(p.status))
+    ));
+  });
+}
+
+// ===== PICK LIST (in/out) =====
+function PickList(type) {
+  if (loadError||products.length===0) return EmptyOrError();
+  const filtered=getFiltered().filter(p=>type==='out'?p.stock>0:true);
+  const color=type==='in'?'#059669':'#dc2626';
+
+  return h('div',{className:'card',style:{overflow:'hidden'}},
+    h('div',{style:{padding:'14px 16px',borderBottom:'1px solid #e2e8f0',background:type==='in'?'#f0fdf4':'#fef2f2'}},
+      h('div',{style:{display:'flex',alignItems:'center',gap:'10px',marginBottom:'12px'}},
+        h('div',{style:{fontSize:'18px'}},type==='in'?'⬇':'⬆'),
+        h('div',{style:{fontWeight:700,fontSize:'15px',color}},type==='in'?'บันทึกรับสินค้าเข้า':'บันทึกจ่ายสินค้าออก')
+      ),
+      h('div',{style:{display:'flex',gap:'8px',flexWrap:'wrap',alignItems:'center'}},
+        h('div',{style:{display:'flex',alignItems:'center',gap:'6px'}},
+          h('label',{style:{fontSize:'12px',fontWeight:600,color:'#475569',whiteSpace:'nowrap'}},'วันที่:'),
+          (()=>{
+            const inp=h('input',{type:'date',className:'input',style:{width:'auto',minWidth:'150px'}});
+            inp.value=ui.txForm.date||td();
+            inp.addEventListener('change',e=>{
+              ui.txForm.date=e.target.value;
+              const tbody = document.getElementById('pick-tbody');
+              if (tbody) renderPickTbody(tbody, type);
+            });
+            return inp;
+          })()
+        ),
+        (() => {
+          const inp = h('input',{className:'input',style:{flex:'1',minWidth:'200px'},placeholder:'🔍 ค้นหาชื่อ / รหัสสินค้า...'});
+          inp.value = ui.search;
+          inp.addEventListener('input', e => {
+            ui.search = e.target.value;
+            const tbody = document.getElementById('pick-tbody');
+            if (tbody) renderPickTbody(tbody, type);
+          });
+          return inp;
+        })()
+      )
+    ),
+    h('div',{style:{overflowX:'auto',maxHeight:'calc(100vh - 240px)',overflowY:'auto'}},
+      h('table',{},
+        h('thead',{style:{position:'sticky',top:0,zIndex:5}},
+          h('tr',{},
+            h('th',{style:{width:'110px'}},'ทำล่าสุด'),
+            h('th',{style:{width:'140px'}},'รหัส'),
+            h('th',{},'สินค้า'),
+            h('th',{style:{textAlign:'right'}},'สต็อก'),
+            h('th',{},'สถานะ')
+          )
+        ),
+        (() => {
+          const tbody = h('tbody', { id: 'pick-tbody' });
+          renderPickTbody(tbody, type);
+          return tbody;
+        })()
+      )
+    )
+  );
+}
+
+function renderPickTbody(tbody, type) {
+  const filtered = getFiltered().filter(p => type==='out' ? p.stock>0 : true);
+  const hoverBg = type==='in' ? '#f0fdf4' : '#fef2f2';
+  tbody.innerHTML = '';
+  if (filtered.length === 0) {
+    tbody.appendChild(h('tr',{},h('td',{colspan:5,style:{padding:'40px',textAlign:'center',color:'#94a3b8'}},'ไม่พบสินค้า')));
+    return;
+  }
+  const currentDate = ui.txForm.date || td();
+  filtered.slice(0,150).forEach(p => {
+    const row = h('tr',{style:{cursor:'pointer'},
+      onClick:()=>{
+        ui.selectedId=p.id;
+        // เก็บวันที่ที่เลือกไว้ ไม่ reset
+        const keepDate = ui.txForm.date || td();
+        ui.txForm={date:keepDate,qty:'',unit:'sqm',note:'',location:'',lot:'',project:''};
+        ui.modal=type;
+        render();
+      }},
+      h('td',{style:{color:'#64748b',fontSize:'12px',whiteSpace:'nowrap'}},p.lastTxDate?fmtDate(p.lastTxDate):''),
+      h('td',{style:{fontFamily:'monospace',color:'#0f172a',fontSize:'13px',fontWeight:600,whiteSpace:'nowrap'}},p.code||p.id),
+      h('td',{className:'product-cell'},
+        h('div',{className:'product-name'},p.name),
+        h('div',{className:'product-meta'},(p.type||'')+' · '+(p.size||''))
+      ),
+      h('td',{style:{textAlign:'right'}},
+        h('span',{className:'stock-num',style:{fontSize:'14px',color:p.status==='out'?'#dc2626':p.status==='low'?'#d97706':'#0f172a'}},fmtNum(p.stock,2))
+      ),
+      h('td',{},badge(p.status))
+    );
+    row.addEventListener('mouseenter',()=>row.style.background=hoverBg);
+    row.addEventListener('mouseleave',()=>row.style.background='');
+    tbody.appendChild(row);
+  });
+}
+
+// ===== HISTORY =====
+function History() {
+  // โหลดอัตโนมัติครั้งเดียวเมื่อเข้าหน้า ถ้ายังไม่มีข้อมูล
+  if (transactions.length === 0 && !isLoadingTx) {
+    setTimeout(() => fetchTransactions(), 0);
+  }
+
+  return h('div',{className:'card',style:{overflow:'hidden'}},
+    h('div',{className:'filter-bar'},
+      (() => {
+        const inp = h('input',{className:'input',style:{maxWidth:'280px',flex:1},placeholder:'🔍 ค้นหารหัส หมายเหตุ ที่เก็บ...'});
+        inp.value = ui.search;
+        inp.addEventListener('input', e => {
+          ui.search = e.target.value;
+          const tbody = document.getElementById('history-tbody');
+          const count = document.getElementById('history-count');
+          if (tbody) renderHistoryTbody(tbody);
+          if (count) count.textContent = getFilteredTx().length.toLocaleString() + ' รายการ';
+        });
+        return inp;
+      })(),
+      h('div',{style:{display:'flex',gap:'4px'}},
+        ...[['all','ทั้งหมด'],['in','รับเข้า'],['out','จ่ายออก']].map(([k,l])=>
+          h('button',{className:'tab-pill'+(ui.historyType===k?' active':''),onClick:()=>{ui.historyType=k;render();}},l)
+        )
+      ),
+      sel([['all','ทุกช่วง'],['today','วันนี้'],['week','7 วัน'],['month','30 วัน']],ui.historyFilter,v=>{ui.historyFilter=v;render();},true),
+      h('div',{id:'history-count',style:{marginLeft:'auto',color:'#64748b',fontSize:'12px',fontWeight:500}},
+        isLoadingTx?'⏳ กำลังโหลด...':getFilteredTx().length.toLocaleString()+' รายการ'
+      )
+    ),
+    isLoadingTx?h('div',{style:{padding:'50px',textAlign:'center',color:'#64748b'}},
+      h('div',{className:'spinner',style:{margin:'0 auto 12px'}}),
+      h('div',{style:{fontSize:'13px'}},'กำลังโหลดประวัติจาก Sheet...')
+    ):transactions.length===0?h('div',{className:'empty-state'},
+      h('div',{className:'empty-icon'},'🕐'),
+      h('div',{style:{fontWeight:600,marginBottom:'8px'}},'ยังไม่มีประวัติการเคลื่อนไหว'),
+      h('button',{className:'btn btn-primary',onClick:()=>{isLoadingTx=false;fetchTransactions();}},'🔄 โหลดใหม่')
+    ):h('div',{style:{overflowX:'auto',maxHeight:'calc(100vh - 200px)',overflowY:'auto'}},
+      h('table',{},
+        h('thead',{style:{position:'sticky',top:0,zIndex:5}},
+          h('tr',{},
+            h('th',{},'วันที่'),
+            h('th',{},'ประเภท'),
+            h('th',{style:{width:'120px'}},'รหัส'),
+            h('th',{},'สินค้า'),
+            h('th',{style:{textAlign:'right'}},'จำนวน (ตร.ม)'),
+            h('th',{style:{width:'90px'}},'Lot'),
+            h('th',{className:'desktop-only',style:{width:'140px'}},'โปรเจค'),
+            h('th',{className:'desktop-only'},'ที่เก็บ'),
+            h('th',{className:'desktop-only'},'หมายเหตุ / ยกเลิกโดย'),
+            h('th',{style:{width:'80px'}},'')
+          )
+        ),
+        (() => {
+          const tbody = h('tbody', { id: 'history-tbody' });
+          renderHistoryTbody(tbody);
+          return tbody;
+        })()
+      )
+    )
+  );
+}
+
+function renderHistoryTbody(tbody) {
+  const filtered = getFilteredTx();
+  tbody.innerHTML = '';
+  if (filtered.length === 0) {
+    tbody.appendChild(h('tr',{},h('td',{colspan:10,style:{padding:'40px',textAlign:'center',color:'#94a3b8'}},'ไม่พบข้อมูล')));
+    return;
+  }
+  filtered.slice(0,500).forEach(tx => {
+    const isCancelled = tx.cancelled === true;
+    const txDate = new Date(tx.date);
+    const diffDays = (new Date() - txDate) / (1000*60*60*24);
+    const canCancel = canEdit() && !isCancelled && diffDays <= 3;
+
+    const row = h('tr',{style:{opacity: isCancelled?'0.5':'1', background: isCancelled?'#fafafa':''}},
+      h('td',{style:{color:'#64748b',fontSize:'12px',whiteSpace:'nowrap'}},fmtDate(tx.date)),
+      h('td',{},
+        isCancelled
+          ? h('span',{className:'badge',style:{background:'#f1f5f9',color:'#94a3b8',textDecoration:'line-through'}},'ยกเลิกแล้ว')
+          : h('span',{className:'badge',style:{background:tx.type==='in'?'#dcfce7':'#fee2e2',color:tx.type==='in'?'#166534':'#991b1b'}},tx.type==='in'?'⬇ รับเข้า':'⬆ จ่ายออก')
+      ),
+      h('td',{style:{fontFamily:'monospace',color:'#0f172a',fontSize:'13px',fontWeight:600,whiteSpace:'nowrap',textDecoration:isCancelled?'line-through':''}},tx.productCode||tx.productId),
+      h('td',{className:'product-cell'},
+        h('div',{className:'product-name',style:{textDecoration:isCancelled?'line-through':''}},(()=>{
+          const p=products.find(x=>x.id===tx.productId||x.code===tx.productCode);
+          return p?p.name:tx.productId||tx.productCode;
+        })())
+      ),
+      h('td',{style:{textAlign:'right',fontWeight:700,color:isCancelled?'#94a3b8':tx.type==='in'?'#059669':'#dc2626',fontVariantNumeric:'tabular-nums',textDecoration:isCancelled?'line-through':''}},
+        (tx.type==='in'?'+':'-')+fmtNum(tx.sqm,3)
+      ),
+      h('td',{style:{fontFamily:'monospace',fontSize:'12px',color:tx.lot?'#0f172a':'#cbd5e1',fontWeight:tx.lot?600:400}},tx.lot||'-'),
+      h('td',{className:'desktop-only',style:{color:'#475569',fontSize:'12px'}},tx.project||'-'),
+      h('td',{className:'desktop-only',style:{color:'#64748b',fontSize:'12px'}},tx.location||'-'),
+      h('td',{className:'desktop-only',style:{color:'#64748b',fontSize:'12px'}},
+        isCancelled
+          ? h('span',{style:{color:'#dc2626',fontSize:'11px'}},'ยกเลิกโดย: '+(tx.cancelBy||'-')+' · '+(tx.cancelReason||'-'))
+          : (tx.note||'-')
+      ),
+      h('td',{style:{textAlign:'right',width:'80px'}},
+        canCancel
+          ? h('button',{className:'btn btn-danger',style:{fontSize:'11px',padding:'3px 8px'},
+              onClick:()=>{ui.selectedId=tx.rowIndex+'|'+tx.type;ui.modal='cancelTx';render();}},'ยกเลิก')
+          : isCancelled ? null
+          : h('span',{style:{fontSize:'10px',color:'#cbd5e1'}},diffDays>3?'เกิน 3 วัน':'')
+      )
+    );
+    tbody.appendChild(row);
+  });
+}
+
+// ===== ALERTS =====
+function Alerts() {
+  if (loadError||products.length===0) return EmptyOrError();
+  const alerts=products.map(p=>({...p,stock:parseFloat(p.stock)||0,status:getStatus(p)})).filter(p=>p.status!=='ok').sort((a,b)=>{
+    if(a.status!==b.status) return a.status==='out'?-1:1;
+    return a.stock-b.stock;
+  });
+
+  return h('div',{className:'card',style:{overflow:'hidden'}},
+    h('div',{style:{padding:'14px 16px',borderBottom:'1px solid #e2e8f0',display:'flex',justifyContent:'space-between',alignItems:'center'}},
+      h('div',{style:{fontWeight:700,fontSize:'14px'}},
+        '⚠ แจ้งเตือนสินค้า ',
+        h('span',{style:{color:'#dc2626'}},'('+alerts.length+' รายการ)')
+      )
+    ),
+    alerts.length===0?h('div',{className:'empty-state'},
+      h('div',{className:'empty-icon'},'✓'),
+      h('div',{style:{fontWeight:600,color:'#10b981'}},'ไม่มีสินค้าที่ต้องเติม')
+    ):h('div',{style:{overflowX:'auto',maxHeight:'calc(100vh - 200px)',overflowY:'auto'}},
+      h('table',{},
+        h('thead',{style:{position:'sticky',top:0,zIndex:5}},
+          h('tr',{},
+            h('th',{style:{width:'140px'}},'รหัส'),
+            h('th',{},'สินค้า'),
+            h('th',{className:'desktop-only'},'ประเภท'),
+            h('th',{style:{textAlign:'right'}},'คงเหลือ'),
+            h('th',{style:{textAlign:'right'}},'ขั้นต่ำ'),
+            h('th',{},'สถานะ'),
+            h('th',{style:{width:'110px'}},'')
+          )
+        ),
+        h('tbody',{},...alerts.map(p=>{
+          const row = h('tr',{style:{cursor:'pointer'},
+            onClick:e=>{
+              if(e.target.tagName==='BUTTON') return;
+              ui.selectedId=p.id;ui.modal='detail';render();
+            }},
+            h('td',{style:{fontFamily:'monospace',color:'#0f172a',fontSize:'13px',fontWeight:600,whiteSpace:'nowrap'}},p.code||p.id),
+            h('td',{className:'product-cell'},
+              h('div',{className:'product-name'},p.name),
+              h('div',{className:'product-meta'},p.size||'')
+            ),
+            h('td',{className:'desktop-only',style:{fontSize:'12px',color:'#475569'}},p.type||'-'),
+            h('td',{style:{textAlign:'right'}},h('span',{className:'stock-num',style:{color:p.status==='out'?'#dc2626':'#d97706',fontSize:'14px'}},fmtNum(p.stock,2))),
+            h('td',{style:{textAlign:'right',color:'#64748b',fontSize:'12px'}},(p.minQty||5)+' ตร.ม'),
+            h('td',{},badge(p.status)),
+            h('td',{},
+              h('button',{className:'btn btn-success',style:{padding:'4px 10px',fontSize:'12px'},
+                onClick:e=>{
+                  e.stopPropagation();
+                  ui.selectedId=p.id;
+                  const keepDate=ui.txForm.date||td();
+                  ui.txForm={date:keepDate,qty:'',unit:'sqm',note:'',location:'',lot:'',project:''};
+                  ui.modal='in';render();
+                }},'+ รับเข้า')
+            )
+          );
+          return row;
+        }))
+      )
+    )
+  );
+}
+
+// ===== TX MODAL (no re-render on input) =====
+function TxModal(type) {
+  const p=getSelected(); if(!p) return null;
+  const stock=parseFloat(p.stock)||0;
+  const color=type==='in'?'#059669':'#dc2626';
+
+  const overlay=h('div',{className:'modal-overlay'});
+  const modal=h('div',{className:'modal',style:{padding:'24px'}});
+
+  // Header
+  modal.appendChild(h('div',{style:{marginBottom:'20px'}},
+    h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}},
+      h('div',{style:{flex:1,minWidth:0}},
+        h('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px'}},
+          h('span',{style:{fontSize:'20px'}},type==='in'?'⬇':'⬆'),
+          h('div',{style:{fontWeight:700,fontSize:'16px',color}},type==='in'?'รับสินค้าเข้า':'จ่ายสินค้าออก')
+        ),
+        h('div',{style:{fontSize:'13px',color:'#0f172a',fontWeight:500,marginBottom:'4px'}},p.name),
+        h('div',{style:{fontSize:'12px',color:'#64748b',fontFamily:'monospace'}},
+          (p.code||'')+' · สต็อก: ',
+          h('span',{style:{fontWeight:700,color:'#0f172a'}},fmtNum(stock,3)),
+          ' ตร.ม'
+        )
+      ),
+      h('button',{className:'btn btn-ghost',style:{padding:'5px 9px'},onClick:()=>{ui.modal=null;render();}},'✕')
+    )
+  ));
+
+  const form=h('div',{style:{display:'flex',flexDirection:'column',gap:'14px'}});
+
+  // วันที่
+  const inpDate=h('input',{type:'date',className:'input',value:ui.txForm.date});
+  form.appendChild(h('div',{},h('label',{className:'field-label'},'วันที่'),inpDate));
+
+  // หน่วย
+  const unitDiv=h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'6px'}});
+  const units=[{k:'sqm',l:'ตร.ม',sub:'1 = 1 ตร.ม'},{k:'box',l:'กล่อง',sub:(p.pcsPerBox||1)+' แผ่น'},{k:'pc',l:'แผ่น',sub:fmtNum(p.sqmPerPc||0,4)+' ตร.ม'}];
+  function refreshUnitBtns() {
+    unitDiv.innerHTML='';
+    units.forEach(u=>{
+      const active=ui.txForm.unit===u.k;
+      const btn=document.createElement('button');
+      btn.style.cssText='padding:9px 8px;border:1.5px solid '+(active?color:'#e2e8f0')+';border-radius:8px;background:'+(active?(type==='in'?'#f0fdf4':'#fef2f2'):'white')+';cursor:pointer;font-family:inherit;text-align:center;transition:all .12s';
+      btn.innerHTML='<div style="font-weight:'+(active?700:500)+';font-size:13px;color:'+(active?color:'#0f172a')+'">'+u.l+'</div>'+'<div style="font-size:10px;color:#64748b;margin-top:2px">'+u.sub+'</div>';
+      btn.addEventListener('click',()=>{ui.txForm.unit=u.k;refreshUnitBtns();updatePreview();});
+      unitDiv.appendChild(btn);
+    });
+  }
+  refreshUnitBtns();
+  form.appendChild(h('div',{},h('label',{className:'field-label'},'หน่วย'),unitDiv));
+
+  // จำนวน
+  const inpQty=h('input',{type:'number',className:'input',placeholder:'0',min:'0',step:'0.01',style:{fontSize:'16px',fontWeight:600}});
+  inpQty.value=ui.txForm.qty||'';
+  const preview=h('div',{style:{marginTop:'6px',fontSize:'12px',padding:'8px 12px',borderRadius:'6px',display:'none',background:'#f8fafc',border:'1px solid #e2e8f0'}});
+  function updatePreview() {
+    const sqm=calcSqm(inpQty.value,ui.txForm.unit,p);
+    const remaining=type==='out'?stock-sqm:stock+sqm;
+    if(sqm>0){
+      preview.style.display='block';
+      const ok = type==='out' ? remaining>=0 : true;
+      preview.innerHTML='<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:#64748b">รวมเป็น:</span><span style="font-weight:700;color:#0f172a">'+fmtNum(sqm,3)+' ตร.ม</span></div>'+
+        '<div style="display:flex;justify-content:space-between"><span style="color:#64748b">'+(type==='out'?'คงเหลือหลังจ่าย:':'รวมหลังรับ:')+'</span><span style="font-weight:700;color:'+(ok?'#059669':'#dc2626')+'">'+fmtNum(Math.max(0,remaining),3)+' ตร.ม</span></div>';
+    } else { preview.style.display='none'; }
+  }
+  inpQty.addEventListener('input',updatePreview);
+  form.appendChild(h('div',{},h('label',{className:'field-label'},'จำนวน'),inpQty,preview));
+
+  // 2-column row: ที่เก็บ + หมายเหตุ
+  const row=h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}});
+
+  const inpLoc=h('input',{className:'input',placeholder:'เช่น P14, หน้าบ้าน'});
+  inpLoc.value=ui.txForm.location||'';
+  row.appendChild(h('div',{},h('label',{className:'field-label'},'ที่เก็บ'),inpLoc));
+
+  const inpNote=h('input',{className:'input',placeholder:'โน๊ตเพิ่มเติม...'});
+  inpNote.value=ui.txForm.note||'';
+  row.appendChild(h('div',{},h('label',{className:'field-label'},'หมายเหตุ'),inpNote));
+  form.appendChild(row);
+
+  // === LOT === ===========================================
+  const lotRow = h('div',{style:{display:'grid',gridTemplateColumns: type==='out'?'1fr 1fr':'1fr',gap:'10px'}});
+  const productLots = getLotsForProduct(p.id);
+  const lotWarn = h('div',{style:{fontSize:'11px',marginTop:'4px',display:'none',color:'#d97706',fontWeight:500}});
+
+  let inpLot;
+  if (type === 'in') {
+    // รับเข้า: input + suggestion จาก lot ที่มีอยู่
+    const lotWrap = h('div',{style:{position:'relative'}});
+    inpLot = h('input',{className:'input',placeholder:'เช่น Lot A, 2025-01',list:'lot-suggestions'});
+    inpLot.value = ui.txForm.lot || '';
+    const datalist = h('datalist',{id:'lot-suggestions'});
+    productLots.forEach(l => datalist.appendChild(h('option',{value:l.lot})));
+    lotWrap.appendChild(inpLot);
+    lotWrap.appendChild(datalist);
+    function checkNewLot() {
+      const v = inpLot.value.trim();
+      if (!v) { lotWarn.style.display='none'; return; }
+      const exists = productLots.some(l => String(l.lot).trim() === v);
+      if (!exists) {
+        lotWarn.innerHTML='⚠ เป็น Lot ใหม่ ระบบจะสร้างให้อัตโนมัติ';
+        lotWarn.style.display='block';
+      } else {
+        const lot = productLots.find(l => String(l.lot).trim() === v);
+        lotWarn.innerHTML='✓ Lot นี้มีอยู่แล้ว ('+fmtNum(lot.stock,3)+' ตร.ม) จะบวกเพิ่ม';
+        lotWarn.style.color='#059669';
+        lotWarn.style.display='block';
+      }
+    }
+    inpLot.addEventListener('input',checkNewLot);
+    setTimeout(checkNewLot,50);
+    lotRow.appendChild(h('div',{},h('label',{className:'field-label'},'Lot ★'),lotWrap,lotWarn));
+  } else {
+    // จ่ายออก: dropdown เลือก lot ที่มีของ
+    inpLot = h('select',{className:'input',style:{cursor:'pointer'}});
+    if (productLots.length === 0) {
+      const opt = document.createElement('option');
+      opt.value = ''; opt.textContent = '— ไม่มี Lot ในระบบ —';
+      inpLot.appendChild(opt);
+    } else {
+      const optDef = document.createElement('option');
+      optDef.value = ''; optDef.textContent = '— เลือก Lot —';
+      inpLot.appendChild(optDef);
+      productLots.sort((a,b) => (a.lot||'').localeCompare(b.lot||'')).forEach(l => {
+        const opt = document.createElement('option');
+        opt.value = l.lot;
+        opt.textContent = l.lot + ' (' + fmtNum(l.stock,3) + ' ตร.ม)';
+        if (ui.txForm.lot === l.lot) opt.selected = true;
+        inpLot.appendChild(opt);
+      });
+    }
+    inpLot.addEventListener('change',e=>{
+      ui.txForm.lot = e.target.value;
+      const lot = productLots.find(l=>l.lot===e.target.value);
+      if (lot) {
+        lotWarn.innerHTML='คงเหลือ Lot นี้: <b>'+fmtNum(lot.stock,3)+' ตร.ม</b>';
+        lotWarn.style.color='#0ea5e9';
+        lotWarn.style.display='block';
+      } else lotWarn.style.display='none';
+    });
+    lotRow.appendChild(h('div',{},h('label',{className:'field-label'},'Lot ★'),inpLot,lotWarn));
+  }
+
+  // === PROJECT (จ่ายออกเท่านั้น) ===
+  let inpProject;
+  if (type === 'out') {
+    const projWrap = h('div',{style:{position:'relative'}});
+    inpProject = h('input',{className:'input',placeholder:'พิมพ์ชื่อโปรเจค/ลูกค้า',list:'project-suggestions'});
+    inpProject.value = ui.txForm.project || '';
+    const pdl = h('datalist',{id:'project-suggestions'});
+    projects.forEach(pr => pdl.appendChild(h('option',{value:pr})));
+    projWrap.appendChild(inpProject);
+    projWrap.appendChild(pdl);
+    const projHint = h('div',{style:{fontSize:'11px',marginTop:'4px',color:'#64748b'}},'พิมพ์ใหม่ระบบจะจำให้ครั้งต่อไป');
+    lotRow.appendChild(h('div',{},h('label',{className:'field-label'},'โปรเจค/ลูกค้า'),projWrap,projHint));
+  }
+
+  form.appendChild(lotRow);
+
+  // ปุ่ม
+  const cancelBtn=h('button',{className:'btn btn-outline',style:{flex:1,justifyContent:'center',padding:'10px'}},'ยกเลิก');
+  cancelBtn.addEventListener('click',()=>{ui.modal=null;render();});
+
+  const saveBtn=h('button',{className:'btn '+(type==='in'?'btn-success':'btn-danger'),style:{flex:2,justifyContent:'center',padding:'10px',fontSize:'14px'}},
+    type==='in'?'✓ บันทึกรับเข้า':'✓ บันทึกจ่ายออก'
+  );
+  saveBtn.addEventListener('click',async()=>{
+    ui.txForm.date=inpDate.value;
+    ui.txForm.qty=inpQty.value;
+    ui.txForm.location=inpLoc.value;
+    ui.txForm.note=inpNote.value;
+    ui.txForm.lot=inpLot ? inpLot.value.trim() : '';
+    ui.txForm.project=inpProject ? inpProject.value.trim() : '';
+
+    // validation
+    if (!ui.txForm.lot) {
+      showToast('กรุณาระบุ Lot','err');
+      return;
+    }
+    if (type==='out') {
+      const sqm=calcSqm(inpQty.value,ui.txForm.unit,p);
+      const lotInfo = productLots.find(l=>l.lot===ui.txForm.lot);
+      if (!lotInfo) { showToast('ไม่พบ Lot นี้ในระบบ','err'); return; }
+      if (lotInfo.stock < sqm) { showToast('สต็อก Lot '+ui.txForm.lot+' ไม่พอ! เหลือ '+fmtNum(lotInfo.stock,3)+' ตร.ม','err'); return; }
+    }
+
+    saveBtn.disabled=true; cancelBtn.disabled=true;
+    saveBtn.innerHTML='⏳ กำลังบันทึก...';
+    await doTx(type);
+  });
+
+  form.appendChild(h('div',{style:{display:'flex',gap:'8px',marginTop:'6px'}},cancelBtn,saveBtn));
+  modal.appendChild(form);
+  overlay.appendChild(modal);
+  overlay.addEventListener('click',e=>{if(e.target===overlay&&!isSaving){ui.modal=null;render();}});
+
+  setTimeout(()=>inpQty.focus(),100);
+  return overlay;
+}
+
+// ===== DETAIL MODAL =====
+function DetailModal() {
+  // ดึงข้อมูลสินค้าล่าสุดจาก products array โดยตรง
+  const selected = getSelected();
+  if (!selected) return null;
+  const p = products.find(x => x.id === selected.id) || selected;
+  const stock=parseFloat(p.stock)||0;
+  const status=getStatus(p);
+  const boxes=Math.floor(stock/((parseFloat(p.pcsPerBox)||1)*(parseFloat(p.sqmPerPc)||1)));
+  const ptx=getProductTx(p.id).concat(getProductTx(p.code)).filter((t,i,arr)=>arr.findIndex(x=>x===t)===i);
+
+  return h('div',{className:'modal-overlay',onClick:e=>{if(e.target===e.currentTarget){ui.modal=null;render();}}},
+    h('div',{className:'modal',style:{padding:'24px',maxWidth:'600px'}},
+      h('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:'16px'}},
+        h('div',{style:{fontWeight:700,fontSize:'16px'}},'รายละเอียดสินค้า'),
+        h('div',{style:{display:'flex',gap:'6px'}},
+          canEdit()?h('button',{className:'btn btn-outline',style:{padding:'5px 10px',fontSize:'12px'},
+            onClick:()=>{ui.modal='editProduct';render();}},'✏️ แก้ไข'):null,
+          h('button',{className:'btn btn-ghost',style:{padding:'5px 9px'},onClick:()=>{ui.modal=null;render();}},'✕')
+        )
+      ),
+      h('div',{style:{background:'#f8fafc',borderRadius:'10px',padding:'14px',marginBottom:'14px',border:'1px solid #e2e8f0'}},
+        h('div',{style:{display:'flex',alignItems:'flex-start',gap:'12px',marginBottom:'12px'}},
+          // รูปภาพ
+          (() => {
+            const thumbUrl = driveThumb(p.imageUrl, 80);
+            const imgWrap = h('div',{style:{width:'72px',height:'72px',borderRadius:'8px',overflow:'hidden',border:'1px solid #e2e8f0',background:'#f1f5f9',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',position:'relative',cursor:canEdit()?'pointer':'default'}});
+            if (thumbUrl) {
+              const img = h('img',{src:thumbUrl,style:{width:'100%',height:'100%',objectFit:'cover'}});
+              img.onerror = () => { imgWrap.innerHTML = '<span style="font-size:28px">🖼</span>'; };
+              imgWrap.appendChild(img);
+            } else {
+              imgWrap.appendChild(h('span',{style:{fontSize:'28px',color:'#cbd5e1'}},'🖼'));
+            }
+            if (canEdit()) {
+              const overlay = h('div',{style:{position:'absolute',inset:0,background:'rgba(0,0,0,.4)',display:'flex',alignItems:'center',justifyContent:'center',opacity:0,transition:'opacity .15s',fontSize:'18px'}},'+');
+              imgWrap.appendChild(overlay);
+              imgWrap.addEventListener('mouseenter',()=>overlay.style.opacity='1');
+              imgWrap.addEventListener('mouseleave',()=>overlay.style.opacity='0');
+              imgWrap.addEventListener('click',()=>{ui.modal='uploadImage';render();});
+            }
+            return imgWrap;
+          })(),
+          h('div',{style:{flex:1}},
+            h('div',{style:{fontWeight:600,fontSize:'14px',marginBottom:'3px'}},p.name),
+            h('div',{style:{fontSize:'11px',color:'#64748b',fontFamily:'monospace'}},p.id),
+            canEdit()?h('button',{className:'btn btn-ghost',style:{fontSize:'11px',padding:'3px 8px',marginTop:'5px'},
+              onClick:()=>{ui.modal='uploadImage';render();}},'📷 '+(p.imageUrl?'เปลี่ยนรูป':'อัปโหลดรูป')):null
+          ),
+          badge(status)
+        ),
+        h('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:'10px'}},
+          ...[['รหัสอ้างอิง',p.code||'-'],['ประเภท',p.type||'-'],['ขนาด (Sheet)',p.size||'-'],['Chip size',p.chipSize||'-'],['แผ่น/กล่อง',(p.pcsPerBox||'-')+' แผ่น'],['ตร.ม/แผ่น',(p.sqmPerPc||'-')+' ตร.ม'],['สต็อกขั้นต่ำ',(p.minQty||5)+' ตร.ม']]
+          .map(([k,v])=>h('div',{},
+            h('div',{style:{color:'#94a3b8',fontSize:'10px',textTransform:'uppercase',letterSpacing:'.04em',fontWeight:600,marginBottom:'2px'}},k),
+            h('div',{style:{fontWeight:500,fontSize:'13px'}},v)
+          ))
+        )
+      ),
+      h('div',{style:{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'8px',marginBottom:'14px'}},
+        ...[
+          ['คงเหลือ (ตร.ม)',fmtNum(stock,3),status==='out'?'#dc2626':status==='low'?'#d97706':'#059669'],
+          ['ประมาณ',boxes+' กล่อง','#0ea5e9'],
+          ['ต่อ 1 แผ่น',fmtNum(p.sqmPerPc||0,4),'#64748b']
+        ].map(([l,v,c])=>h('div',{style:{background:'white',border:'1px solid #e2e8f0',borderRadius:'8px',padding:'10px',textAlign:'center'}},
+          h('div',{style:{fontWeight:700,fontSize:'17px',color:c,fontVariantNumeric:'tabular-nums'}},v),
+          h('div',{style:{fontSize:'10px',color:'#94a3b8',marginTop:'3px',textTransform:'uppercase',letterSpacing:'.04em',fontWeight:600}},l)
+        ))
+      ),
+      h('div',{style:{display:'flex',gap:'8px',marginBottom:ptx.length>0?'14px':'0'}},
+        h('button',{className:'btn btn-success',style:{flex:1,justifyContent:'center',padding:'9px'},
+          onClick:()=>{ui.txForm={date:td(),qty:'',unit:'sqm',note:'',location:'',lot:'',project:''};ui.modal='in';render();}
+        },'⬇ รับเข้า'),
+        h('button',{className:'btn btn-danger',style:{flex:1,justifyContent:'center',padding:'9px',opacity:stock<=0?0.5:1},disabled:stock<=0,
+          onClick:()=>{if(stock>0){ui.txForm={date:td(),qty:'',unit:'sqm',note:'',location:'',lot:'',project:''};ui.modal='out';render();}}
+        },'⬆ จ่ายออก')
+      ),
+      // === Lot table ===
+      (() => {
+        const productLots = getLotsForProduct(p.id);
+        if (productLots.length === 0) return null;
+        return h('div',{style:{marginBottom:'14px'}},
+          h('div',{style:{fontWeight:600,fontSize:'12px',marginBottom:'7px',color:'#374151',textTransform:'uppercase',letterSpacing:'.04em',display:'flex',justifyContent:'space-between'}},
+            h('span',{},'📦 Lot ของสินค้า ('+productLots.length+')'),
+            h('span',{style:{color:'#0ea5e9',textTransform:'none',letterSpacing:'0'}},'รวม '+fmtNum(productLots.reduce((s,l)=>s+l.stock,0),3)+' ตร.ม')
+          ),
+          h('div',{style:{maxHeight:'160px',overflowY:'auto',border:'1px solid #e2e8f0',borderRadius:'8px'}},
+            h('table',{style:{fontSize:'12px'}},
+              h('thead',{style:{position:'sticky',top:0}},
+                h('tr',{style:{background:'#f8fafc'}},
+                  h('th',{style:{padding:'6px 10px',textAlign:'left',fontWeight:600,color:'#64748b',fontSize:'10px',textTransform:'uppercase'}},'Lot'),
+                  h('th',{style:{padding:'6px 10px',textAlign:'right',fontWeight:600,color:'#64748b',fontSize:'10px',textTransform:'uppercase'}},'คงเหลือ'),
+                  h('th',{style:{padding:'6px 10px',textAlign:'left',fontWeight:600,color:'#64748b',fontSize:'10px',textTransform:'uppercase'}},'ล่าสุด')
+                )
+              ),
+              h('tbody',{},...productLots.sort((a,b)=>b.stock-a.stock).map(l=>h('tr',{},
+                h('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f1f5f9',fontWeight:600,fontFamily:'monospace'}},l.lot),
+                h('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f1f5f9',textAlign:'right',fontWeight:700,fontVariantNumeric:'tabular-nums'}},fmtNum(l.stock,3)),
+                h('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f1f5f9',color:'#64748b',whiteSpace:'nowrap'}},fmtDate(l.lastDate))
+              )))
+            )
+          )
+        );
+      })(),
+      ptx.length>0?h('div',{},
+        h('div',{style:{fontWeight:600,fontSize:'12px',marginBottom:'7px',color:'#374151',textTransform:'uppercase',letterSpacing:'.04em'}},'ประวัติการเคลื่อนไหว ('+ptx.length+')'),
+        h('div',{style:{maxHeight:'200px',overflowY:'auto',border:'1px solid #e2e8f0',borderRadius:'8px'}},
+          h('table',{style:{fontSize:'12px'}},
+            h('tbody',{},...ptx.map(tx=>h('tr',{},
+              h('td',{style:{padding:'6px 10px',color:'#64748b',whiteSpace:'nowrap',borderBottom:'1px solid #f1f5f9'}},fmtDate(tx.date)),
+              h('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f1f5f9'}},h('span',{className:'badge',style:{background:tx.type==='in'?'#dcfce7':'#fee2e2',color:tx.type==='in'?'#166534':'#991b1b'}},tx.type==='in'?'รับเข้า':'จ่ายออก')),
+              h('td',{style:{padding:'6px 10px',fontWeight:700,color:tx.type==='in'?'#059669':'#dc2626',textAlign:'right',borderBottom:'1px solid #f1f5f9'}},(tx.type==='in'?'+':'-')+fmtNum(tx.sqm,3)),
+              h('td',{style:{padding:'6px 10px',color:'#64748b',borderBottom:'1px solid #f1f5f9'}},tx.lot||tx.note||tx.location||'-')
+            )))
+          )
+        )
+      ):h('div',{style:{textAlign:'center',color:'#94a3b8',fontSize:'12px',padding:'10px',background:'#f8fafc',borderRadius:'6px'}},'ยังไม่มีประวัติการเคลื่อนไหวของสินค้านี้')
+    )
+  );
+}
+
+// ===== LOGIN PAGE =====
+function LoginPage() {
+  const wrap = h('div',{style:{minHeight:'100vh',background:'linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)',display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'}});
+
+  const card = h('div',{style:{background:'white',borderRadius:'16px',padding:'36px',width:'100%',maxWidth:'380px',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}});
+
+  // Logo
+  card.appendChild(h('div',{style:{textAlign:'center',marginBottom:'28px'}},
+    h('div',{style:{width:'56px',height:'56px',background:'linear-gradient(135deg,#0ea5e9,#38bdf8)',borderRadius:'14px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'24px',margin:'0 auto 12px'}},'▦'),
+    h('div',{style:{fontWeight:700,fontSize:'20px',color:'#0f172a'}},'DM Stock Control'),
+    h('div',{style:{color:'#64748b',fontSize:'13px',marginTop:'3px'}},'กรุณาล็อกอินเพื่อเข้าใช้งาน')
+  ));
+
+  const errMsg = h('div',{style:{background:'#fee2e2',color:'#991b1b',borderRadius:'8px',padding:'9px 12px',fontSize:'13px',marginBottom:'14px',display:'none'}});
+  card.appendChild(errMsg);
+
+  // Name dropdown
+  const nameWrap = h('div',{style:{marginBottom:'14px'}});
+  nameWrap.appendChild(h('label',{style:{fontSize:'12px',fontWeight:600,color:'#374151',display:'block',marginBottom:'5px'}},'ชื่อผู้ใช้'));
+  const selName = h('select',{className:'input',style:{cursor:'pointer'}});
+  const defOpt = document.createElement('option');
+  defOpt.value = ''; defOpt.textContent = '— เลือกชื่อ —';
+  selName.appendChild(defOpt);
+  userNames.forEach(n => {
+    const opt = document.createElement('option');
+    opt.value = n; opt.textContent = n;
+    selName.appendChild(opt);
+  });
+  nameWrap.appendChild(selName);
+  card.appendChild(nameWrap);
+
+  // Password
+  const pwWrap = h('div',{style:{marginBottom:'20px'}});
+  pwWrap.appendChild(h('label',{style:{fontSize:'12px',fontWeight:600,color:'#374151',display:'block',marginBottom:'5px'}},'รหัสผ่าน'));
+  const pwRow = h('div',{style:{position:'relative'}});
+  const inpPw = h('input',{type:'password',className:'input',placeholder:'••••••••',style:{paddingRight:'44px'}});
+  const toggleBtn = h('button',{type:'button',style:{position:'absolute',right:'10px',top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:'16px',color:'#94a3b8',padding:'0',lineHeight:'1'}},'👁');
+  let pwVisible = false;
+  toggleBtn.addEventListener('click',()=>{
+    pwVisible = !pwVisible;
+    inpPw.type = pwVisible ? 'text' : 'password';
+    toggleBtn.textContent = pwVisible ? '🙈' : '👁';
+  });
+  pwRow.appendChild(inpPw);
+  pwRow.appendChild(toggleBtn);
+  pwWrap.appendChild(pwRow);
+  card.appendChild(pwWrap);
+
+  const loginBtn = h('button',{className:'btn btn-primary',style:{width:'100%',justifyContent:'center',padding:'11px',fontSize:'14px'}},'เข้าสู่ระบบ');
+
+  async function doLogin() {
+    const name = selName.value.trim();
+    const pw = inpPw.value.trim();
+    if (!name) { errMsg.textContent='กรุณาเลือกชื่อผู้ใช้'; errMsg.style.display='block'; return; }
+    if (!pw) { errMsg.textContent='กรุณากรอกรหัสผ่าน'; errMsg.style.display='block'; return; }
+    loginBtn.disabled = true; loginBtn.textContent = '⏳ กำลังตรวจสอบ...';
+    const result = await apiLogin(name, pw);
+    if (result.success) {
+      currentUser = result.user;
+      saveSession(currentUser);
+      showToast('ยินดีต้อนรับ '+currentUser.name+' 👋');
+      await fetchProducts();
+      fetchTransactions(); fetchLots(); fetchProjects();
+      render();
+    } else {
+      errMsg.textContent = result.error || 'ล็อกอินไม่สำเร็จ';
+      errMsg.style.display = 'block';
+      loginBtn.disabled = false; loginBtn.textContent = 'เข้าสู่ระบบ';
+      inpPw.value = '';
+    }
+  }
+
+  loginBtn.addEventListener('click', doLogin);
+  inpPw.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  card.appendChild(loginBtn);
+
+  card.appendChild(h('div',{style:{textAlign:'center',marginTop:'16px',fontSize:'12px',color:'#94a3b8'}},'หากลืมรหัสผ่าน กรุณาติดต่อ Admin'));
+  wrap.appendChild(card);
+  return wrap;
+}
+
+// ===== UPLOAD IMAGE MODAL =====
+function UploadImageModal() {
+  const p = getSelected(); if (!p) return null;
+  const thumbUrl = driveThumb(p.imageUrl, 200);
+
+  const overlay = h('div',{className:'modal-overlay',onClick:e=>{if(e.target===overlay&&!isSaving){ui.modal='detail';render();}}});
+  const modal = h('div',{className:'modal',style:{padding:'24px',maxWidth:'420px'}});
+
+  modal.appendChild(h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'18px'}},
+    h('div',{},
+      h('div',{style:{fontWeight:700,fontSize:'16px'}},'📷 อัปโหลดรูปสินค้า'),
+      h('div',{style:{color:'#64748b',fontSize:'12px',marginTop:'2px'}},p.name)
+    ),
+    h('button',{className:'btn btn-ghost',style:{padding:'5px 9px'},onClick:()=>{ui.modal='detail';render();}},'✕')
+  ));
+
+  // แสดงรูปปัจจุบัน
+  const previewWrap = h('div',{style:{marginBottom:'16px',textAlign:'center'}});
+  const previewImg = h('div',{style:{width:'160px',height:'160px',borderRadius:'10px',overflow:'hidden',border:'2px solid #e2e8f0',background:'#f8fafc',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto',fontSize:'48px',color:'#cbd5e1'}});
+  if (thumbUrl) {
+    const img = document.createElement('img');
+    img.src = thumbUrl; img.style.cssText='width:100%;height:100%;object-fit:cover';
+    img.onerror = () => { previewImg.innerHTML='🖼'; };
+    previewImg.appendChild(img);
+  } else {
+    previewImg.textContent = '🖼';
+  }
+  previewWrap.appendChild(previewImg);
+  previewWrap.appendChild(h('div',{style:{fontSize:'11px',color:'#94a3b8',marginTop:'6px'}},'รูปปัจจุบัน'));
+  modal.appendChild(previewWrap);
+
+  const errDiv = h('div',{style:{background:'#fee2e2',color:'#991b1b',borderRadius:'8px',padding:'9px 12px',fontSize:'13px',marginBottom:'12px',display:'none'}});
+  modal.appendChild(errDiv);
+
+  // Upload area
+  const uploadArea = h('div',{style:{border:'2px dashed #e2e8f0',borderRadius:'10px',padding:'24px',textAlign:'center',cursor:'pointer',transition:'all .15s',marginBottom:'16px'}});
+  uploadArea.appendChild(h('div',{style:{fontSize:'32px',marginBottom:'8px'}},'📁'));
+  uploadArea.appendChild(h('div',{style:{fontWeight:600,fontSize:'13px',color:'#0f172a'}},'คลิกเพื่อเลือกรูป'));
+  uploadArea.appendChild(h('div',{style:{fontSize:'11px',color:'#94a3b8',marginTop:'4px'}},'รองรับ JPG, PNG, WEBP ขนาดไม่เกิน 5MB'));
+
+  const fileInput = h('input',{type:'file',accept:'image/*',style:{display:'none'}});
+  let selectedFile = null;
+
+  fileInput.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { errDiv.textContent='ไฟล์ใหญ่เกิน 5MB'; errDiv.style.display='block'; return; }
+    selectedFile = file;
+    errDiv.style.display='none';
+
+    // preview รูปที่เลือก
+    const reader = new FileReader();
+    reader.onload = ev => {
+      previewImg.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = ev.target.result; img.style.cssText='width:100%;height:100%;object-fit:cover';
+      previewImg.appendChild(img);
+      previewWrap.lastElementChild.textContent = file.name + ' (' + (file.size/1024).toFixed(0) + ' KB)';
+    };
+    reader.readAsDataURL(file);
+
+    uploadArea.style.borderColor = '#0ea5e9';
+    uploadArea.style.background = '#f0f9ff';
+  });
+
+  uploadArea.addEventListener('click', () => fileInput.click());
+  uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.style.borderColor='#0ea5e9'; });
+  uploadArea.addEventListener('dragleave', () => { uploadArea.style.borderColor='#e2e8f0'; });
+  uploadArea.addEventListener('drop', e => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) { fileInput.files = e.dataTransfer.files; fileInput.dispatchEvent(new Event('change')); }
+  });
+  modal.appendChild(uploadArea);
+  modal.appendChild(fileInput);
+
+  const saveBtn = h('button',{className:'btn btn-primary',style:{flex:2,justifyContent:'center',padding:'10px'}},'✓ อัปโหลดรูป → Drive');
+  saveBtn.addEventListener('click', async() => {
+    if (!selectedFile) { errDiv.textContent='กรุณาเลือกรูปก่อน'; errDiv.style.display='block'; return; }
+    saveBtn.disabled=true; isSaving=true;
+    saveBtn.textContent='⏳ กำลังอัปโหลด...';
+    errDiv.style.display='none';
+
+    try {
+      // แปลงไฟล์เป็น base64
+      const base64 = await new Promise((res,rej) => {
+        const reader = new FileReader();
+        reader.onload = e => res(e.target.result.split(',')[1]);
+        reader.onerror = rej;
+        reader.readAsDataURL(selectedFile);
+      });
+
+      const result = await apiUploadImage(p.id, selectedFile.name, selectedFile.type, base64);
+
+      if (result.success) {
+        // อัปเดต imageUrl ใน local products array
+        const idx = products.findIndex(x=>x.id===p.id);
+        if (idx>=0) products[idx].imageUrl = result.viewUrl;
+
+        isSaving=false; ui.modal='detail';
+        showToast('✓ อัปโหลดรูปสำเร็จ · บันทึกลง Drive แล้ว 🎉');
+        render();
+      } else {
+        throw new Error(result.error || 'อัปโหลดไม่สำเร็จ');
+      }
+    } catch(e) {
+      errDiv.textContent='❌ '+e.message;
+      errDiv.style.display='block';
+      saveBtn.disabled=false; isSaving=false;
+      saveBtn.textContent='✓ อัปโหลดรูป → Drive';
+    }
+  });
+
+  modal.appendChild(h('div',{style:{display:'flex',gap:'8px'}},
+    h('button',{className:'btn btn-outline',style:{flex:1,justifyContent:'center',padding:'10px'},onClick:()=>{ui.modal='detail';render();}},'← กลับ'),
+    saveBtn
+  ));
+
+  overlay.appendChild(modal);
+  return overlay;
+}
+
+// ===== EDIT PRODUCT MODAL =====
+function EditProductModal() {
+  const p = getSelected(); if (!p) return null;
+  const isAdminUser = isAdmin();
+
+  const overlay = h('div',{className:'modal-overlay',onClick:e=>{if(e.target===overlay&&!isSaving){ui.modal='detail';render();}}});
+  const modal = h('div',{className:'modal',style:{padding:'24px',maxWidth:'560px'}});
+
+  modal.appendChild(h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'18px'}},
+    h('div',{},
+      h('div',{style:{fontWeight:700,fontSize:'16px'}},'✏️ แก้ไขสินค้า'),
+      h('div',{style:{color:'#64748b',fontSize:'12px',marginTop:'2px'}},p.name)
+    ),
+    h('button',{className:'btn btn-ghost',style:{padding:'5px 9px'},onClick:()=>{ui.modal='detail';render();}},'✕')
+  ));
+
+  const errDiv = h('div',{style:{background:'#fee2e2',color:'#991b1b',borderRadius:'8px',padding:'9px 12px',fontSize:'13px',marginBottom:'12px',display:'none'}});
+  modal.appendChild(errDiv);
+
+  // ฟิลด์ต่างๆ
+  const inpCode = h('input',{className:'input',placeholder:'รหัสสินค้า',value:p.id||''});
+  const inpName = h('input',{className:'input',placeholder:'ชื่อ/รายละเอียด',value:p.name||''});
+  const inpType = h('input',{className:'input',placeholder:'ประเภท',value:p.type||'',list:'edit-type-list'});
+  const typeList = h('datalist',{id:'edit-type-list'});
+  Array.from(new Set(products.map(x=>x.type).filter(Boolean))).sort().forEach(t=>{
+    const opt=document.createElement('option'); opt.value=t; typeList.appendChild(opt);
+  });
+  modal.appendChild(typeList);
+
+  const inpPcsPerBox = h('input',{type:'number',className:'input',min:'0',step:'1',value:p.pcsPerBox||''});
+  const inpSqmPerPc = h('input',{type:'number',className:'input',min:'0',step:'0.0001',value:p.sqmPerPc||''});
+  const inpSize = h('input',{className:'input',placeholder:'เช่น 296*297',value:p.size||''});
+  const inpChipSize = h('input',{className:'input',placeholder:'เช่น 15*297',value:p.chipSize||''});
+  const inpMinQty = h('input',{type:'number',className:'input',min:'0',step:'0.1',value:p.minQty||''});
+
+  // warning รหัสซ้ำ
+  const codeWarn = h('div',{style:{fontSize:'11px',marginTop:'4px',display:'none',fontWeight:500}});
+  inpCode.addEventListener('input',()=>{
+    const v = inpCode.value.trim();
+    if (!v || v === p.id) { codeWarn.style.display='none'; return; }
+    const exists = products.find(x=>x.id===v||x.code===v);
+    if (exists && exists.id !== p.id) {
+      codeWarn.innerHTML='⚠ รหัสนี้มีอยู่แล้ว: <b>'+exists.name+'</b>';
+      codeWarn.style.color='#dc2626'; codeWarn.style.display='block';
+    } else {
+      codeWarn.innerHTML='✓ รหัสนี้ใช้ได้';
+      codeWarn.style.color='#059669'; codeWarn.style.display='block';
+    }
+  });
+
+  // preview
+  const preview = h('div',{style:{fontSize:'12px',color:'#64748b',background:'#f8fafc',padding:'8px 12px',borderRadius:'6px',marginTop:'6px',display:'none'}});
+  function updatePreview() {
+    const pcs = parseFloat(inpPcsPerBox.value)||0;
+    const sqm = parseFloat(inpSqmPerPc.value)||0;
+    if (pcs>0 && sqm>0) {
+      preview.style.display='block';
+      preview.textContent = '1 กล่อง = '+pcs+' แผ่น × '+sqm+' ตร.ม = '+(pcs*sqm).toFixed(4)+' ตร.ม/กล่อง';
+    } else preview.style.display='none';
+  }
+  inpPcsPerBox.addEventListener('input',updatePreview);
+  inpSqmPerPc.addEventListener('input',updatePreview);
+  updatePreview();
+
+  const form = h('div',{style:{display:'flex',flexDirection:'column',gap:'12px'}});
+
+  // รหัส (Admin เท่านั้น)
+  form.appendChild(h('div',{},
+    h('label',{className:'field-label'},isAdminUser?'รหัสสินค้า (Admin เท่านั้น)':'รหัสสินค้า (ดูได้อย่างเดียว)'),
+    isAdminUser ? h('div',{},inpCode,codeWarn) :
+    h('div',{style:{background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:'7px',padding:'9px 12px',fontSize:'13px',fontFamily:'monospace',color:'#64748b'}},p.id)
+  ));
+
+  form.appendChild(h('div',{},h('label',{className:'field-label'},'ชื่อ/รายละเอียด ★'),inpName));
+  form.appendChild(h('div',{},h('label',{className:'field-label'},'ประเภท ★'),inpType));
+  form.appendChild(h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}},
+    h('div',{},h('label',{className:'field-label'},'แผ่น/กล่อง'),inpPcsPerBox),
+    h('div',{},h('label',{className:'field-label'},'ตร.ม/แผ่น'),inpSqmPerPc)
+  ));
+  form.appendChild(preview);
+  form.appendChild(h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}},
+    h('div',{},h('label',{className:'field-label'},'Sheet size'),inpSize),
+    h('div',{},h('label',{className:'field-label'},'Chip size'),inpChipSize)
+  ));
+  form.appendChild(h('div',{},h('label',{className:'field-label'},'สต็อกขั้นต่ำ (ตร.ม)'),inpMinQty));
+
+  const saveBtn = h('button',{className:'btn btn-primary',style:{flex:2,justifyContent:'center',padding:'10px'}},'✓ บันทึกการแก้ไข → Sheet');
+  saveBtn.addEventListener('click', async()=>{
+    const name = inpName.value.trim();
+    const type = inpType.value.trim();
+    if (!name) { errDiv.textContent='กรุณากรอกชื่อสินค้า'; errDiv.style.display='block'; return; }
+    if (!type) { errDiv.textContent='กรุณากรอกประเภท'; errDiv.style.display='block'; return; }
+
+    const newCode = inpCode.value.trim();
+    if (isAdminUser && newCode && newCode !== p.id) {
+      const dup = products.find(x=>(x.id===newCode||x.code===newCode) && x.id!==p.id);
+      if (dup) { errDiv.textContent='รหัส "'+newCode+'" มีอยู่แล้ว'; errDiv.style.display='block'; return; }
+    }
+
+    saveBtn.disabled=true; isSaving=true;
+    saveBtn.textContent='⏳ กำลังบันทึก...';
+    errDiv.style.display='none';
+
+    try {
+      const url = API_URL + "?" + new URLSearchParams({
+        action: 'updateProduct',
+        targetId: p.id,
+        newCode: isAdminUser ? newCode : '',
+        name, type,
+        pcsPerBox: inpPcsPerBox.value.trim(),
+        sqmPerPc: inpSqmPerPc.value.trim(),
+        size: inpSize.value.trim(),
+        chipSize: inpChipSize.value.trim(),
+        minQty: inpMinQty.value.trim(),
+      });
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data.success) {
+        isSaving=false; ui.modal=null;
+        showToast('✓ แก้ไขสินค้าสำเร็จ');
+        await fetchProducts();
+        render();
+      } else {
+        errDiv.textContent = data.error || 'เกิดข้อผิดพลาด';
+        errDiv.style.display='block';
+        saveBtn.disabled=false; isSaving=false;
+        saveBtn.textContent='✓ บันทึกการแก้ไข → Sheet';
+      }
+    } catch(e) {
+      errDiv.textContent='❌ '+e.message;
+      errDiv.style.display='block';
+      saveBtn.disabled=false; isSaving=false;
+      saveBtn.textContent='✓ บันทึกการแก้ไข → Sheet';
+    }
+  });
+
+  form.appendChild(h('div',{style:{display:'flex',gap:'8px',marginTop:'4px'}},
+    h('button',{className:'btn btn-outline',style:{flex:1,justifyContent:'center',padding:'10px'},
+      onClick:()=>{ui.modal='detail';render();}},'← กลับ'),
+    saveBtn
+  ));
+
+  modal.appendChild(form);
+  overlay.appendChild(modal);
+  return overlay;
+}
+
+// ===== CANCEL TRANSACTION MODAL =====
+function CancelTxModal() {
+  const parts = (ui.selectedId||'').split('|');
+  const rowIndex = parseInt(parts[0]);
+  const txType = parts[1];
+  const tx = transactions.find(t => t.rowIndex === rowIndex && t.type === txType);
+  if (!tx) return null;
+
+  const p = products.find(x=>x.id===tx.productId||x.code===tx.productCode);
+  const overlay = h('div',{className:'modal-overlay',onClick:e=>{if(e.target===overlay&&!isSaving){ui.modal=null;render();}}});
+  const modal = h('div',{className:'modal',style:{padding:'24px',maxWidth:'460px'}});
+
+  modal.appendChild(h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}},
+    h('div',{},
+      h('div',{style:{fontWeight:700,fontSize:'16px',color:'#dc2626'}},'↩ ยกเลิกรายการ'),
+      h('div',{style:{fontSize:'12px',color:'#64748b',marginTop:'2px'}},'รายการนี้จะถูกขีดฆ่าและสต็อกจะถูกคืน')
+    ),
+    h('button',{className:'btn btn-ghost',style:{padding:'5px 9px'},onClick:()=>{ui.modal=null;render();}},'✕')
+  ));
+
+  // สรุปรายการ
+  modal.appendChild(h('div',{style:{background:'#fef2f2',border:'1px solid #fecaca',borderRadius:'8px',padding:'12px',marginBottom:'16px'}},
+    h('div',{style:{fontSize:'13px',fontWeight:600,marginBottom:'6px'}},p?p.name:(tx.productCode||tx.productId)),
+    h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px',fontSize:'12px',color:'#64748b'}},
+      h('div',{},'ประเภท: ',h('span',{style:{color:'#dc2626',fontWeight:600}},tx.type==='in'?'รับเข้า':'จ่ายออก')),
+      h('div',{},'วันที่: ',h('span',{style:{fontWeight:600}},fmtDate(tx.date))),
+      h('div',{},'จำนวน: ',h('span',{style:{fontWeight:600}},fmtNum(tx.sqm,3)+' ตร.ม')),
+      h('div',{},'Lot: ',h('span',{style:{fontWeight:600}},tx.lot||'-'))
+    ),
+    h('div',{style:{marginTop:'8px',fontSize:'12px',color:'#dc2626',fontWeight:500}},
+      tx.type==='in'
+        ? '⚠ สต็อกจะลดลง '+fmtNum(tx.sqm,3)+' ตร.ม'
+        : '⚠ สต็อกจะเพิ่มขึ้น '+fmtNum(tx.sqm,3)+' ตร.ม'
+    )
+  ));
+
+  const inpReason = h('input',{className:'input',placeholder:'เช่น บันทึกผิดจำนวน, เลือกสินค้าผิด...'});
+  modal.appendChild(h('div',{style:{marginBottom:'16px'}},
+    h('label',{className:'field-label'},'เหตุผลที่ยกเลิก ★'),
+    inpReason
+  ));
+
+  const errDiv = h('div',{style:{background:'#fee2e2',color:'#991b1b',borderRadius:'8px',padding:'9px 12px',fontSize:'13px',marginBottom:'12px',display:'none'}});
+  modal.appendChild(errDiv);
+
+  const confirmBtn = h('button',{className:'btn btn-danger',style:{flex:2,justifyContent:'center',padding:'10px'}},'↩ ยืนยันยกเลิกรายการ');
+  confirmBtn.addEventListener('click', async()=>{
+    const reason = inpReason.value.trim();
+    if (!reason) { errDiv.textContent='กรุณาระบุเหตุผล'; errDiv.style.display='block'; inpReason.focus(); return; }
+
+    confirmBtn.disabled=true; isSaving=true;
+    confirmBtn.textContent='⏳ กำลังยกเลิก...';
+    errDiv.style.display='none';
+
+    try {
+      const url = API_URL + "?" + new URLSearchParams({
+        action: 'cancelTransaction',
+        rowIndex: tx.rowIndex,
+        txType: tx.type,
+        reason,
+        cancelBy: currentUser ? currentUser.name : ''
+      });
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data.success) {
+        isSaving=false; ui.modal=null;
+        showToast('✓ ยกเลิกรายการสำเร็จ · สต็อกถูกคืนแล้ว');
+        await Promise.all([fetchProducts(), fetchTransactions(), fetchLots()]);
+        render();
+      } else {
+        errDiv.textContent = data.error || 'เกิดข้อผิดพลาด';
+        errDiv.style.display='block';
+        confirmBtn.disabled=false; isSaving=false;
+        confirmBtn.textContent='↩ ยืนยันยกเลิกรายการ';
+      }
+    } catch(e) {
+      errDiv.textContent='❌ '+e.message;
+      errDiv.style.display='block';
+      confirmBtn.disabled=false; isSaving=false;
+      confirmBtn.textContent='↩ ยืนยันยกเลิกรายการ';
+    }
+  });
+
+  modal.appendChild(h('div',{style:{display:'flex',gap:'8px'}},
+    h('button',{className:'btn btn-outline',style:{flex:1,justifyContent:'center',padding:'10px'},onClick:()=>{ui.modal=null;render();}},'ยกเลิก'),
+    confirmBtn
+  ));
+
+  overlay.appendChild(modal);
+  setTimeout(()=>inpReason.focus(),100);
+  return overlay;
+}
+
+// ===== ADD PRODUCT MODAL =====
+function AddProductModal() {
+  const overlay = h('div',{className:'modal-overlay',onClick:e=>{if(e.target===overlay&&!isSaving){ui.modal=null;render();}}});
+  const modal = h('div',{className:'modal',style:{padding:'24px',maxWidth:'560px'}});
+
+  modal.appendChild(h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'18px'}},
+    h('div',{},
+      h('div',{style:{fontWeight:700,fontSize:'16px'}},'+ เพิ่มสินค้าใหม่'),
+      h('div',{style:{color:'#64748b',fontSize:'12px',marginTop:'2px'}},'ข้อมูลจะถูกบันทึกลง Google Sheets ทันที')
+    ),
+    h('button',{className:'btn btn-ghost',style:{padding:'5px 9px'},onClick:()=>{ui.modal=null;render();}},'✕')
+  ));
+
+  const errDiv = h('div',{style:{background:'#fee2e2',color:'#991b1b',borderRadius:'8px',padding:'9px 12px',fontSize:'13px',marginBottom:'12px',display:'none'}});
+  modal.appendChild(errDiv);
+
+  // ฟิลด์ต่างๆ
+  const inpCode = h('input',{className:'input',placeholder:'เช่น DM-1508, DM-ATPLGM25'});
+  const inpName = h('input',{className:'input',placeholder:'เช่น 15 Long Finger: 2-Row Blue (Glossy)'});
+  const inpType = h('input',{className:'input',placeholder:'เช่น Subway Tiles, Squares, Art Tiles',list:'type-list'});
+
+  // สร้าง datalist ประเภทจากสินค้าเดิม
+  const typeList = h('datalist',{id:'type-list'});
+  Array.from(new Set(products.map(p=>p.type).filter(Boolean))).sort().forEach(t=>{
+    const opt=document.createElement('option'); opt.value=t; typeList.appendChild(opt);
+  });
+  modal.appendChild(typeList);
+
+  const inpPcsPerBox = h('input',{type:'number',className:'input',placeholder:'เช่น 15',min:'0',step:'1'});
+  const inpSqmPerPc = h('input',{type:'number',className:'input',placeholder:'เช่น 0.0879',min:'0',step:'0.0001'});
+  const inpSize = h('input',{className:'input',placeholder:'เช่น 296*297'});
+  const inpChipSize = h('input',{className:'input',placeholder:'เช่น 15*297'});
+  const inpMinQty = h('input',{type:'number',className:'input',placeholder:'เช่น 5 (ค่าเริ่มต้น 5 ตร.ม)',min:'0',step:'0.1'});
+  const inpRefCode = h('input',{className:'input',placeholder:'เช่น SA152 (ถ้ามี)'});
+
+  // preview คำนวณ ตร.ม/กล่อง
+  const preview = h('div',{style:{fontSize:'12px',color:'#64748b',background:'#f8fafc',padding:'8px 12px',borderRadius:'6px',marginTop:'6px',display:'none'}});
+
+  function updatePreview() {
+    const pcs = parseFloat(inpPcsPerBox.value)||0;
+    const sqm = parseFloat(inpSqmPerPc.value)||0;
+    if (pcs>0 && sqm>0) {
+      preview.style.display='block';
+      preview.textContent = '1 กล่อง = '+pcs+' แผ่น × '+sqm+' ตร.ม = '+(pcs*sqm).toFixed(4)+' ตร.ม/กล่อง';
+    } else preview.style.display='none';
+  }
+  inpPcsPerBox.addEventListener('input',updatePreview);
+  inpSqmPerPc.addEventListener('input',updatePreview);
+
+  // warning รหัสซ้ำ
+  const codeWarn = h('div',{style:{fontSize:'11px',marginTop:'4px',display:'none',fontWeight:500}});
+  inpCode.addEventListener('input',()=>{
+    const v = inpCode.value.trim();
+    if (!v) { codeWarn.style.display='none'; return; }
+    const exists = products.find(p=>p.id===v||p.code===v);
+    if (exists) {
+      codeWarn.innerHTML='⚠ รหัสนี้มีอยู่แล้ว: <b>'+exists.name+'</b>';
+      codeWarn.style.color='#dc2626';
+      codeWarn.style.display='block';
+    } else {
+      codeWarn.innerHTML='✓ รหัสนี้ยังไม่มีในระบบ';
+      codeWarn.style.color='#059669';
+      codeWarn.style.display='block';
+    }
+  });
+
+  const form = h('div',{style:{display:'flex',flexDirection:'column',gap:'12px'}});
+
+  // Section: จำเป็น
+  form.appendChild(h('div',{style:{fontSize:'11px',fontWeight:700,color:'#64748b',textTransform:'uppercase',letterSpacing:'.04em',paddingBottom:'4px',borderBottom:'1px solid #f1f5f9'}},'ข้อมูลจำเป็น ★'));
+
+  form.appendChild(h('div',{},
+    h('label',{className:'field-label'},'รหัสสินค้า ★'),
+    inpCode, codeWarn
+  ));
+  form.appendChild(h('div',{},h('label',{className:'field-label'},'ชื่อ/รายละเอียด ★'),inpName));
+  form.appendChild(h('div',{},h('label',{className:'field-label'},'ประเภท ★'),inpType));
+
+  form.appendChild(h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}},
+    h('div',{},h('label',{className:'field-label'},'แผ่น/กล่อง ★'),inpPcsPerBox),
+    h('div',{},h('label',{className:'field-label'},'ตร.ม/แผ่น ★'),inpSqmPerPc)
+  ));
+  form.appendChild(preview);
+
+  // Section: ไม่บังคับ
+  form.appendChild(h('div',{style:{fontSize:'11px',fontWeight:700,color:'#64748b',textTransform:'uppercase',letterSpacing:'.04em',paddingBottom:'4px',borderBottom:'1px solid #f1f5f9',marginTop:'4px'}},'ข้อมูลเพิ่มเติม (ไม่บังคับ)'));
+
+  form.appendChild(h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}},
+    h('div',{},h('label',{className:'field-label'},'Sheet size'),inpSize),
+    h('div',{},h('label',{className:'field-label'},'Chip size'),inpChipSize)
+  ));
+  form.appendChild(h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}},
+    h('div',{},h('label',{className:'field-label'},'สต็อกขั้นต่ำ (ตร.ม)'),inpMinQty),
+    h('div',{},h('label',{className:'field-label'},'รหัสอ้างอิง'),inpRefCode)
+  ));
+
+  const saveBtn = h('button',{className:'btn btn-primary',style:{flex:2,justifyContent:'center',padding:'10px',fontSize:'14px'}},'✓ เพิ่มสินค้าใหม่ → Sheet');
+
+  saveBtn.addEventListener('click', async()=>{
+    const code = inpCode.value.trim();
+    const name = inpName.value.trim();
+    const type = inpType.value.trim();
+    const pcsPerBox = inpPcsPerBox.value.trim();
+    const sqmPerPc = inpSqmPerPc.value.trim();
+
+    // Validate
+    if (!code) { errDiv.textContent='กรุณากรอกรหัสสินค้า'; errDiv.style.display='block'; inpCode.focus(); return; }
+    if (!name) { errDiv.textContent='กรุณากรอกชื่อสินค้า'; errDiv.style.display='block'; inpName.focus(); return; }
+    if (!type) { errDiv.textContent='กรุณากรอกประเภท'; errDiv.style.display='block'; inpType.focus(); return; }
+    if (!pcsPerBox||parseFloat(pcsPerBox)<=0) { errDiv.textContent='กรุณากรอกจำนวนแผ่น/กล่อง'; errDiv.style.display='block'; inpPcsPerBox.focus(); return; }
+    if (!sqmPerPc||parseFloat(sqmPerPc)<=0) { errDiv.textContent='กรุณากรอก ตร.ม/แผ่น'; errDiv.style.display='block'; inpSqmPerPc.focus(); return; }
+
+    // เช็คซ้ำใน local ก่อน
+    const exists = products.find(p=>p.id===code||p.code===code);
+    if (exists) { errDiv.textContent='รหัส "'+code+'" มีอยู่แล้ว: '+exists.name; errDiv.style.display='block'; return; }
+
+    errDiv.style.display='none';
+    saveBtn.disabled=true; isSaving=true;
+    saveBtn.textContent='⏳ กำลังบันทึก...';
+
+    try {
+      const url = API_URL + "?" + new URLSearchParams({
+        action: 'addProduct',
+        code, name, type,
+        pcsPerBox, sqmPerPc,
+        size: inpSize.value.trim(),
+        chipSize: inpChipSize.value.trim(),
+        minQty: inpMinQty.value.trim() || '5',
+        refCode: inpRefCode.value.trim(),
+        addedBy: currentUser ? currentUser.name : '',
+      });
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data.success) {
+        isSaving=false; ui.modal=null;
+        showToast('✓ เพิ่มสินค้า "'+code+'" สำเร็จ 🎉');
+        await fetchProducts(); // sync ทันที
+        render();
+      } else {
+        errDiv.textContent = data.error || 'เกิดข้อผิดพลาด';
+        errDiv.style.display='block';
+        saveBtn.disabled=false; isSaving=false;
+        saveBtn.textContent='✓ เพิ่มสินค้าใหม่ → Sheet';
+      }
+    } catch(e) {
+      errDiv.textContent='❌ '+e.message;
+      errDiv.style.display='block';
+      saveBtn.disabled=false; isSaving=false;
+      saveBtn.textContent='✓ เพิ่มสินค้าใหม่ → Sheet';
+    }
+  });
+
+  form.appendChild(h('div',{style:{display:'flex',gap:'8px',marginTop:'4px'}},
+    h('button',{className:'btn btn-outline',style:{flex:1,justifyContent:'center',padding:'10px'},onClick:()=>{ui.modal=null;render();}},'ยกเลิก'),
+    saveBtn
+  ));
+
+  modal.appendChild(form);
+  overlay.appendChild(modal);
+  return overlay;
+}
+
+// ===== ADMIN PAGE =====
+function AdminPage() {
+  if (!isAdmin()) {
+    return h('div',{className:'card empty-state'},
+      h('div',{className:'empty-icon'},'🔒'),
+      h('div',{style:{fontWeight:600}},'ไม่มีสิทธิ์เข้าถึง'),
+      h('div',{style:{fontSize:'12px',color:'#94a3b8',marginTop:'4px'}},'เฉพาะ Admin เท่านั้น')
+    );
+  }
+
+  return h('div',{style:{display:'flex',flexDirection:'column',gap:'14px'}},
+    // หัวข้อ
+    h('div',{className:'card',style:{padding:'14px 16px',background:'#0f172a'}},
+      h('div',{style:{display:'flex',alignItems:'center',gap:'10px'}},
+        h('span',{style:{fontSize:'20px'}},'⚙️'),
+        h('div',{},
+          h('div',{style:{color:'white',fontWeight:700,fontSize:'15px'}},'จัดการผู้ใช้งาน'),
+          h('div',{style:{color:'#94a3b8',fontSize:'12px'}},'เฉพาะ Admin เท่านั้น')
+        )
+      )
+    ),
+
+    // รายชื่อผู้ใช้
+    h('div',{className:'card',style:{overflow:'hidden'}},
+      h('div',{style:{padding:'12px 16px',borderBottom:'1px solid #e2e8f0',display:'flex',justifyContent:'space-between',alignItems:'center'}},
+        h('div',{style:{fontWeight:700,fontSize:'14px'}},'👥 ผู้ใช้ทั้งหมด ('+allUsers.length+')'),
+        h('button',{className:'btn btn-primary',style:{fontSize:'12px'},
+          onClick:()=>{ui.modal='addUser';render();}},'+ เพิ่มผู้ใช้')
+      ),
+      allUsers.length===0?h('div',{style:{padding:'30px',textAlign:'center',color:'#94a3b8'}},'ยังไม่มีผู้ใช้'):
+      h('table',{},
+        h('thead',{},h('tr',{},
+          h('th',{},'ชื่อ'), h('th',{},'Email'), h('th',{},'ระดับ'),
+          h('th',{},'เข้าล่าสุด'), h('th',{style:{width:'130px'}},'')
+        )),
+        h('tbody',{},...allUsers.map(u=>h('tr',{},
+          h('td',{style:{fontWeight:600}},
+            u.name,
+            u.name===currentUser.name?h('span',{style:{background:'#dbeafe',color:'#1e40af',borderRadius:'4px',padding:'1px 6px',fontSize:'10px',marginLeft:'6px',fontWeight:600}},'คุณ'):null
+          ),
+          h('td',{style:{fontSize:'12px',color:'#64748b'}},u.email||'-'),
+          h('td',{},h('span',{className:'badge',style:{
+            background: u.role==='admin'?'#fef3c7':u.role==='poweruser'?'#dbeafe':'#f1f5f9',
+            color: u.role==='admin'?'#92400e':u.role==='poweruser'?'#1e40af':'#64748b'
+          }}, u.role==='admin'?'Admin':u.role==='poweruser'?'Power User':'Viewer')),
+          h('td',{style:{fontSize:'12px',color:'#64748b'}},u.lastLogin||'-'),
+          h('td',{},
+            u.name===currentUser.name?null:
+            h('div',{style:{display:'flex',gap:'4px'}},
+              h('button',{className:'btn btn-outline',style:{fontSize:'11px',padding:'4px 8px'},
+                onClick:()=>{ui.selectedId=u.name;ui.modal='editUser';render();}},'แก้ไข'),
+              h('button',{className:'btn btn-danger',style:{fontSize:'11px',padding:'4px 8px'},
+                onClick:async()=>{
+                  if(!confirm('ลบผู้ใช้ "'+u.name+'" ออกจากระบบ?')) return;
+                  const r = await apiDeleteUser(u.name);
+                  if(r.success){showToast('✓ ลบแล้ว'); await fetchAllUsers(); render();}
+                  else showToast('❌ '+r.error,'err');
+                }},'ลบ')
+            )
+          )
+        )))
+      )
+    )
+  );
+}
+
+// === MODAL เพิ่มผู้ใช้ ===
+function AddUserModal() {
+  const overlay = h('div',{className:'modal-overlay',onClick:e=>{if(e.target===overlay){ui.modal=null;render();}}});
+  const modal = h('div',{className:'modal',style:{padding:'24px'}});
+
+  modal.appendChild(h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'18px'}},
+    h('div',{style:{fontWeight:700,fontSize:'16px'}},'+ เพิ่มผู้ใช้ใหม่'),
+    h('button',{className:'btn btn-ghost',style:{padding:'5px 9px'},onClick:()=>{ui.modal=null;render();}},'✕')
+  ));
+
+  const errDiv = h('div',{style:{background:'#fee2e2',color:'#991b1b',borderRadius:'8px',padding:'9px 12px',fontSize:'13px',marginBottom:'12px',display:'none'}});
+  modal.appendChild(errDiv);
+
+  const inpName = h('input',{className:'input',placeholder:'เช่น ซิม'});
+  const inpEmail = h('input',{className:'input',placeholder:'เช่น sim@gmail.com'});
+  const pwRowAdd = h('div',{style:{position:'relative'}});
+  const inpPw = h('input',{type:'password',className:'input',placeholder:'รหัสผ่าน',style:{paddingRight:'44px'}});
+  const togAdd = h('button',{type:'button',style:{position:'absolute',right:'10px',top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:'16px',color:'#94a3b8',padding:'0'}},'👁');
+  let visAdd=false;
+  togAdd.addEventListener('click',()=>{visAdd=!visAdd;inpPw.type=visAdd?'text':'password';togAdd.textContent=visAdd?'🙈':'👁';});
+  pwRowAdd.appendChild(inpPw); pwRowAdd.appendChild(togAdd);
+  const selRole = h('select',{className:'input',style:{cursor:'pointer'}});
+  [['admin','Admin'],['poweruser','Power User'],['viewer','Viewer']].forEach(([v,l])=>{
+    const opt=document.createElement('option'); opt.value=v; opt.textContent=l; selRole.appendChild(opt);
+  });
+  selRole.value='viewer';
+
+  const form = h('div',{style:{display:'flex',flexDirection:'column',gap:'12px'}});
+  form.appendChild(h('div',{},h('label',{className:'field-label'},'ชื่อ ★'),inpName));
+  form.appendChild(h('div',{},h('label',{className:'field-label'},'Email'),inpEmail));
+  form.appendChild(h('div',{},h('label',{className:'field-label'},'รหัสผ่าน ★'),pwRowAdd));
+  form.appendChild(h('div',{},h('label',{className:'field-label'},'ระดับ'),selRole));
+
+  const saveBtn = h('button',{className:'btn btn-primary',style:{flex:2,justifyContent:'center',padding:'10px'}},'✓ เพิ่มผู้ใช้');
+  saveBtn.addEventListener('click', async()=>{
+    const name=inpName.value.trim(), pw=inpPw.value.trim();
+    if(!name||!pw){errDiv.textContent='กรุณากรอกชื่อและรหัสผ่าน';errDiv.style.display='block';return;}
+    saveBtn.disabled=true; saveBtn.textContent='⏳ กำลังบันทึก...';
+    const r = await apiAddUser(name, inpEmail.value.trim(), pw, selRole.value);
+    if(r.success){
+      showToast('✓ เพิ่มผู้ใช้ "'+name+'" แล้ว');
+      ui.modal=null;
+      await fetchAllUsers();
+      await fetchUserNames();
+      render();
+    } else {
+      errDiv.textContent=r.error||'เกิดข้อผิดพลาด'; errDiv.style.display='block';
+      saveBtn.disabled=false; saveBtn.textContent='✓ เพิ่มผู้ใช้';
+    }
+  });
+
+  form.appendChild(h('div',{style:{display:'flex',gap:'8px',marginTop:'4px'}},
+    h('button',{className:'btn btn-outline',style:{flex:1,justifyContent:'center'},onClick:()=>{ui.modal=null;render();}},'ยกเลิก'),
+    saveBtn
+  ));
+  modal.appendChild(form);
+  overlay.appendChild(modal);
+  return overlay;
+}
+
+// === MODAL แก้ไขผู้ใช้ ===
+function EditUserModal() {
+  const u = allUsers.find(x=>x.name===ui.selectedId);
+  if(!u) return null;
+
+  const overlay = h('div',{className:'modal-overlay',onClick:e=>{if(e.target===overlay){ui.modal=null;render();}}});
+  const modal = h('div',{className:'modal',style:{padding:'24px'}});
+
+  modal.appendChild(h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'18px'}},
+    h('div',{},
+      h('div',{style:{fontWeight:700,fontSize:'16px'}},'✏️ แก้ไขผู้ใช้'),
+      h('div',{style:{color:'#64748b',fontSize:'13px',marginTop:'2px'}},u.name)
+    ),
+    h('button',{className:'btn btn-ghost',style:{padding:'5px 9px'},onClick:()=>{ui.modal=null;render();}},'✕')
+  ));
+
+  const pwRowEdit = h('div',{style:{position:'relative'}});
+  const inpPw = h('input',{type:'password',className:'input',placeholder:'เว้นว่างถ้าไม่เปลี่ยน',style:{paddingRight:'44px'}});
+  const togEdit = h('button',{type:'button',style:{position:'absolute',right:'10px',top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:'16px',color:'#94a3b8',padding:'0'}},'👁');
+  let visEdit=false;
+  togEdit.addEventListener('click',()=>{visEdit=!visEdit;inpPw.type=visEdit?'text':'password';togEdit.textContent=visEdit?'🙈':'👁';});
+  pwRowEdit.appendChild(inpPw); pwRowEdit.appendChild(togEdit);
+  const selRole = h('select',{className:'input',style:{cursor:'pointer'}});
+  [['admin','Admin'],['poweruser','Power User'],['viewer','Viewer']].forEach(([v,l])=>{
+    const opt=document.createElement('option'); opt.value=v; opt.textContent=l;
+    if(v===u.role) opt.selected=true;
+    selRole.appendChild(opt);
+  });
+
+  const form = h('div',{style:{display:'flex',flexDirection:'column',gap:'12px'}});
+  form.appendChild(h('div',{},h('label',{className:'field-label'},'รหัสผ่านใหม่ (ถ้าต้องการเปลี่ยน)'),pwRowEdit));
+  form.appendChild(h('div',{},h('label',{className:'field-label'},'ระดับ'),selRole));
+
+  const saveBtn = h('button',{className:'btn btn-primary',style:{flex:2,justifyContent:'center',padding:'10px'}},'✓ บันทึกการแก้ไข');
+  saveBtn.addEventListener('click', async()=>{
+    saveBtn.disabled=true; saveBtn.textContent='⏳ กำลังบันทึก...';
+    const r = await apiUpdateUser(u.name, inpPw.value.trim(), selRole.value);
+    if(r.success){
+      showToast('✓ แก้ไข "'+u.name+'" แล้ว');
+      ui.modal=null;
+      await fetchAllUsers();
+      render();
+    } else {
+      showToast('❌ '+r.error,'err');
+      saveBtn.disabled=false; saveBtn.textContent='✓ บันทึกการแก้ไข';
+    }
+  });
+
+  form.appendChild(h('div',{style:{display:'flex',gap:'8px',marginTop:'4px'}},
+    h('button',{className:'btn btn-outline',style:{flex:1,justifyContent:'center'},onClick:()=>{ui.modal=null;render();}},'ยกเลิก'),
+    saveBtn
+  ));
+  modal.appendChild(form);
+  overlay.appendChild(modal);
+  return overlay;
+}
+
+// ===== CUSTOMERS / LOT / PRODUCT VIEW =====
+function getCustomerTxs() {
+  // เฉพาะรายการจ่ายออก ที่มี project ระบุ
+  return transactions.filter(t => t.type === 'out' && t.project);
+}
+
+function getCustomerSummary() {
+  const map = {};
+  getCustomerTxs().forEach(tx => {
+    const key = String(tx.project).trim();
+    if (!map[key]) map[key] = { name: key, count: 0, sqm: 0, products: new Set(), lots: new Set(), lastDate: tx.date };
+    map[key].count++;
+    map[key].sqm += tx.sqm;
+    map[key].products.add(tx.productCode || tx.productId);
+    if (tx.lot) map[key].lots.add(tx.lot);
+    if (new Date(tx.date) > new Date(map[key].lastDate)) map[key].lastDate = tx.date;
+  });
+  return Object.values(map).map(c => ({
+    ...c,
+    productCount: c.products.size,
+    lotCount: c.lots.size,
+    products: Array.from(c.products),
+    lots: Array.from(c.lots)
+  })).sort((a,b) => b.sqm - a.sqm);
+}
+
+function getLotSummary() {
+  const map = {};
+  transactions.forEach(tx => {
+    if (!tx.lot) return;
+    const key = (tx.productCode||tx.productId) + '||' + tx.lot;
+    if (!map[key]) map[key] = {
+      productId: tx.productId, productCode: tx.productCode, lot: tx.lot,
+      inSqm: 0, outSqm: 0, customers: new Set(), lastDate: tx.date,
+      txCount: 0
+    };
+    if (tx.type === 'in') map[key].inSqm += tx.sqm;
+    else { 
+      map[key].outSqm += tx.sqm;
+      if (tx.project) map[key].customers.add(tx.project);
+    }
+    map[key].txCount++;
+    if (new Date(tx.date) > new Date(map[key].lastDate)) map[key].lastDate = tx.date;
+  });
+  return Object.values(map).map(l => ({
+    ...l,
+    remaining: l.inSqm - l.outSqm,
+    customerCount: l.customers.size,
+    customers: Array.from(l.customers)
+  })).sort((a,b) => new Date(b.lastDate) - new Date(a.lastDate));
+}
+
+function getProductSummary() {
+  const map = {};
+  transactions.forEach(tx => {
+    const key = tx.productCode || tx.productId;
+    if (!key) return;
+    if (!map[key]) map[key] = {
+      productId: tx.productId, productCode: tx.productCode,
+      inSqm: 0, outSqm: 0, lots: new Set(), customers: new Set(),
+      lastDate: tx.date, txCount: 0
+    };
+    if (tx.type === 'in') map[key].inSqm += tx.sqm;
+    else {
+      map[key].outSqm += tx.sqm;
+      if (tx.project) map[key].customers.add(tx.project);
+    }
+    if (tx.lot) map[key].lots.add(tx.lot);
+    map[key].txCount++;
+    if (new Date(tx.date) > new Date(map[key].lastDate)) map[key].lastDate = tx.date;
+  });
+  return Object.values(map).map(p => ({
+    ...p,
+    lotCount: p.lots.size,
+    customerCount: p.customers.size,
+    lots: Array.from(p.lots),
+    customers: Array.from(p.customers)
+  })).sort((a,b) => b.outSqm - a.outSqm);
+}
+
+function Customers() {
+  if (transactions.length === 0) {
+    return h('div',{className:'card empty-state'},
+      h('div',{className:'empty-icon'},'👥'),
+      h('div',{style:{fontWeight:600,marginBottom:'8px'}},'ยังไม่มีข้อมูลการขายออก'),
+      h('button',{className:'btn btn-primary',onClick:()=>fetchTransactions()},'🔄 โหลดข้อมูล')
+    );
+  }
+
+  const tabs = [
+    {k:'customer', l:'👤 ลูกค้า/โปรเจค', icon:'👤'},
+    {k:'lot', l:'📦 ตาม Lot', icon:'📦'},
+    {k:'product', l:'🏷 ตามสินค้า', icon:'🏷'}
+  ];
+
+  return h('div',{style:{display:'flex',flexDirection:'column',gap:'14px'}},
+    // Tabs
+    h('div',{className:'card',style:{padding:'12px 16px'}},
+      h('div',{style:{display:'flex',gap:'6px',flexWrap:'wrap'}},
+        ...tabs.map(t=>h('button',{className:'tab-pill'+(ui.custView===t.k?' active':''),
+          onClick:()=>{ui.custView=t.k;ui.custSelected=null;ui.search='';render();}
+        },t.l))
+      )
+    ),
+
+    // Content
+    ui.custView==='customer' ? CustomerView() :
+    ui.custView==='lot' ? LotView() :
+    ProductView()
+  );
+}
+
+// === CUSTOMER VIEW ===
+function CustomerView() {
+  if (ui.custSelected) {
+    return CustomerDetail(ui.custSelected);
+  }
+  
+  const all = getCustomerSummary();
+  if (all.length === 0) {
+    return h('div',{className:'card empty-state'},
+      h('div',{className:'empty-icon'},'👤'),
+      h('div',{},'ยังไม่มีลูกค้าในระบบ'),
+      h('div',{style:{fontSize:'12px',color:'#94a3b8',marginTop:'4px'}},'ระบุชื่อลูกค้าตอนจ่ายสินค้าออก')
+    );
+  }
+
+  const card = h('div',{className:'card',style:{overflow:'hidden'}});
+  const countLabel = h('span',{},'('+all.length+'/'+all.length+')');
+  
+  card.appendChild(h('div',{style:{padding:'12px 16px',borderBottom:'1px solid #e2e8f0',display:'flex',gap:'10px',alignItems:'center',flexWrap:'wrap'}},
+    h('div',{style:{fontWeight:700,fontSize:'14px',display:'flex',gap:'5px'}},'👤 ลูกค้า/โปรเจค ',countLabel),
+    (() => {
+      const inp = h('input',{className:'input',style:{maxWidth:'280px',flex:1},placeholder:'🔍 ค้นหาลูกค้า / สินค้า / Lot...'});
+      inp.value = ui.search;
+      inp.addEventListener('input', e => {
+        ui.search = e.target.value;
+        renderCustomerTbody(tbody, all);
+        countLabel.textContent = '('+(tbody.children.length||0)+'/'+all.length+')';
+      });
+      return inp;
+    })()
+  ));
+
+  const tbody = h('tbody');
+  renderCustomerTbody(tbody, all);
+  countLabel.textContent = '('+tbody.children.length+'/'+all.length+')';
+
+  card.appendChild(h('div',{style:{overflowX:'auto'}},
+    h('table',{},
+      h('thead',{},h('tr',{},
+        h('th',{},'ลูกค้า/โปรเจค'),
+        h('th',{style:{textAlign:'right'}},'ครั้งที่ซื้อ'),
+        h('th',{style:{textAlign:'right'}},'รวมยอด (ตร.ม)'),
+        h('th',{style:{textAlign:'right'}},'สินค้าที่ซื้อ'),
+        h('th',{style:{textAlign:'right'}},'Lot ที่ซื้อ'),
+        h('th',{},'ซื้อล่าสุด')
+      )),
+      tbody
+    )
+  ));
+  return card;
+}
+
+function renderCustomerTbody(tbody, all) {
+  const q = (ui.search||'').toLowerCase();
+  const customers = q ? all.filter(c => 
+    String(c.name).toLowerCase().includes(q) ||
+    c.products.some(p => String(p).toLowerCase().includes(q)) ||
+    c.lots.some(l => String(l).toLowerCase().includes(q))
+  ) : all;
+  
+  tbody.innerHTML = '';
+  if (customers.length === 0) {
+    tbody.appendChild(h('tr',{},h('td',{colspan:6,style:{padding:'30px',textAlign:'center',color:'#94a3b8'}},'ไม่พบลูกค้า')));
+    return;
+  }
+  customers.forEach(c => {
+    tbody.appendChild(h('tr',{style:{cursor:'pointer'},
+      onClick:()=>{ui.custSelected=c.name;render();}},
+      h('td',{style:{fontWeight:600,fontSize:'13px'}},c.name),
+      h('td',{style:{textAlign:'right',fontVariantNumeric:'tabular-nums'}},c.count),
+      h('td',{style:{textAlign:'right',fontWeight:700,color:'#0ea5e9',fontVariantNumeric:'tabular-nums'}},fmtNum(c.sqm,3)),
+      h('td',{style:{textAlign:'right',fontSize:'12px',color:'#64748b'}},c.productCount+' รหัส'),
+      h('td',{style:{textAlign:'right',fontSize:'12px',color:'#64748b'}},c.lotCount+' Lot'),
+      h('td',{style:{color:'#64748b',fontSize:'12px',whiteSpace:'nowrap'}},fmtDate(c.lastDate))
+    ));
+  });
+}
+
+function CustomerDetail(name) {
+  const txs = getCustomerTxs().filter(t => String(t.project).trim() === name).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const totalSqm = txs.reduce((s,t)=>s+t.sqm,0);
+  const products = Array.from(new Set(txs.map(t=>t.productCode||t.productId)));
+  const lots = Array.from(new Set(txs.map(t=>t.lot).filter(Boolean)));
+
+  return h('div',{style:{display:'flex',flexDirection:'column',gap:'14px'}},
+    // Back button + header
+    h('div',{className:'card',style:{padding:'14px 16px'}},
+      h('button',{className:'btn btn-ghost',style:{marginBottom:'10px',fontSize:'12px'},
+        onClick:()=>{ui.custSelected=null;render();}},'← กลับไปรายชื่อลูกค้า'),
+      h('div',{style:{fontWeight:700,fontSize:'18px',marginBottom:'4px'}},'👤 '+name),
+      h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:'10px',marginTop:'12px'}},
+        ...[
+          ['ครั้งที่ซื้อ',txs.length+' ครั้ง','#0ea5e9'],
+          ['รวมยอด',fmtNum(totalSqm,3)+' ตร.ม','#10b981'],
+          ['สินค้าที่ซื้อ',products.length+' รหัส','#8b5cf6'],
+          ['Lot ที่ซื้อ',lots.length+' Lot','#f59e0b']
+        ].map(([l,v,c])=>h('div',{style:{background:'#f8fafc',borderRadius:'8px',padding:'10px',textAlign:'center',borderLeft:'3px solid '+c}},
+          h('div',{style:{fontSize:'17px',fontWeight:700,color:c,fontVariantNumeric:'tabular-nums'}},v),
+          h('div',{style:{fontSize:'10px',color:'#94a3b8',marginTop:'3px',textTransform:'uppercase',letterSpacing:'.04em',fontWeight:600}},l)
+        ))
+      )
+    ),
+
+    // Lots ที่ซื้อ
+    lots.length>0?h('div',{className:'card',style:{overflow:'hidden'}},
+      h('div',{style:{padding:'12px 16px',borderBottom:'1px solid #e2e8f0',fontWeight:700,fontSize:'13px'}},'📦 Lot ที่ซื้อ ('+lots.length+')'),
+      h('div',{style:{padding:'10px 16px',display:'flex',flexWrap:'wrap',gap:'6px'}},
+        ...lots.map(lt=>{
+          const lotTxs = txs.filter(t=>t.lot===lt);
+          const sum = lotTxs.reduce((s,t)=>s+t.sqm,0);
+          return h('span',{style:{background:'#f1f5f9',padding:'5px 10px',borderRadius:'14px',fontSize:'12px',cursor:'pointer'},
+            onClick:()=>{ui.custView='lot';ui.custSelected=lt;render();}},
+            h('span',{style:{fontFamily:'monospace',fontWeight:600}},lt),
+            h('span',{style:{color:'#64748b',marginLeft:'5px'}},'· '+fmtNum(sum,2)+' ตร.ม')
+          );
+        })
+      )
+    ):null,
+
+    // History table
+    h('div',{className:'card',style:{overflow:'hidden'}},
+      h('div',{style:{padding:'12px 16px',borderBottom:'1px solid #e2e8f0',fontWeight:700,fontSize:'13px'}},'🕐 ประวัติการซื้อ ('+txs.length+')'),
+      h('div',{style:{overflowX:'auto',maxHeight:'500px',overflowY:'auto'}},
+        h('table',{},
+          h('thead',{style:{position:'sticky',top:0,zIndex:5}},h('tr',{},
+            h('th',{},'วันที่'),
+            h('th',{},'รหัส'),
+            h('th',{},'สินค้า'),
+            h('th',{},'Lot'),
+            h('th',{style:{textAlign:'right'}},'จำนวน (ตร.ม)')
+          )),
+          h('tbody',{},...txs.map(tx=>h('tr',{},
+            h('td',{style:{color:'#64748b',fontSize:'12px',whiteSpace:'nowrap'}},fmtDate(tx.date)),
+            h('td',{style:{fontFamily:'monospace',fontSize:'12px',fontWeight:600}},tx.productCode||tx.productId),
+            h('td',{className:'product-cell'},h('div',{className:'product-name'},(()=>{
+              const p=products.find(x=>x.id===tx.productId||x.code===tx.productCode);
+              return p?p.name:tx.productId||tx.productCode;
+            })())),
+            h('td',{style:{fontFamily:'monospace',fontSize:'12px',fontWeight:600,color:tx.lot?'#0f172a':'#cbd5e1'}},tx.lot||'-'),
+            h('td',{style:{textAlign:'right',fontWeight:700,color:'#dc2626'}},'-'+fmtNum(tx.sqm,3))
+          )))
+        )
+      )
+    )
+  );
+}
+
+// === LOT VIEW ===
+function LotView() {
+  if (ui.custSelected) {
+    return LotDetail(ui.custSelected);
+  }
+
+  const all = getLotSummary();
+  if (all.length === 0) {
+    return h('div',{className:'card empty-state'},
+      h('div',{className:'empty-icon'},'📦'),
+      h('div',{},'ยังไม่มีข้อมูล Lot')
+    );
+  }
+
+  const card = h('div',{className:'card',style:{overflow:'hidden'}});
+  const countLabel = h('span',{});
+
+  card.appendChild(h('div',{style:{padding:'12px 16px',borderBottom:'1px solid #e2e8f0',display:'flex',gap:'10px',alignItems:'center',flexWrap:'wrap'}},
+    h('div',{style:{fontWeight:700,fontSize:'14px',display:'flex',gap:'5px'}},'📦 Lot ทั้งหมด ',countLabel),
+    (() => {
+      const inp = h('input',{className:'input',style:{maxWidth:'280px',flex:1},placeholder:'🔍 ค้นหา Lot / รหัส / ลูกค้า...'});
+      inp.value = ui.search;
+      inp.addEventListener('input', e => {
+        ui.search = e.target.value;
+        renderLotTbody(tbody, all);
+        countLabel.textContent = '('+tbody.children.length+'/'+all.length+')';
+      });
+      return inp;
+    })()
+  ));
+
+  const tbody = h('tbody');
+  renderLotTbody(tbody, all);
+  countLabel.textContent = '('+tbody.children.length+'/'+all.length+')';
+
+  card.appendChild(h('div',{style:{overflowX:'auto'}},
+    h('table',{},
+      h('thead',{},h('tr',{},
+        h('th',{},'Lot'),
+        h('th',{},'รหัสสินค้า'),
+        h('th',{style:{textAlign:'right'}},'รับเข้า'),
+        h('th',{style:{textAlign:'right'}},'จ่ายออก'),
+        h('th',{style:{textAlign:'right'}},'คงเหลือ'),
+        h('th',{style:{textAlign:'right'}},'ลูกค้า'),
+        h('th',{},'ล่าสุด')
+      )),
+      tbody
+    )
+  ));
+  return card;
+}
+
+function renderLotTbody(tbody, all) {
+  const q = (ui.search||'').toLowerCase();
+  const lotSummary = q ? all.filter(l =>
+    String(l.lot).toLowerCase().includes(q) ||
+    String(l.productCode||l.productId).toLowerCase().includes(q) ||
+    l.customers.some(c => String(c).toLowerCase().includes(q))
+  ) : all;
+
+  tbody.innerHTML = '';
+  if (lotSummary.length === 0) {
+    tbody.appendChild(h('tr',{},h('td',{colspan:7,style:{padding:'30px',textAlign:'center',color:'#94a3b8'}},'ไม่พบ Lot')));
+    return;
+  }
+  lotSummary.forEach(l => {
+    tbody.appendChild(h('tr',{style:{cursor:'pointer'},
+      onClick:()=>{ui.custSelected=l.lot;render();}},
+      h('td',{style:{fontFamily:'monospace',fontWeight:600}},l.lot),
+      h('td',{style:{fontFamily:'monospace',fontSize:'12px',color:'#64748b'}},l.productCode||l.productId),
+      h('td',{style:{textAlign:'right',color:'#059669',fontWeight:600}},'+'+fmtNum(l.inSqm,3)),
+      h('td',{style:{textAlign:'right',color:'#dc2626',fontWeight:600}},'-'+fmtNum(l.outSqm,3)),
+      h('td',{style:{textAlign:'right',fontWeight:700,color:l.remaining>0?'#0f172a':'#94a3b8'}},fmtNum(l.remaining,3)),
+      h('td',{style:{textAlign:'right',fontSize:'12px',color:'#64748b'}},l.customerCount+' ราย'),
+      h('td',{style:{color:'#64748b',fontSize:'12px',whiteSpace:'nowrap'}},fmtDate(l.lastDate))
+    ));
+  });
+}
+
+function LotDetail(lotName) {
+  const lotTxs = transactions.filter(t => t.lot === lotName).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const inTxs = lotTxs.filter(t=>t.type==='in');
+  const outTxs = lotTxs.filter(t=>t.type==='out');
+  const inSum = inTxs.reduce((s,t)=>s+t.sqm,0);
+  const outSum = outTxs.reduce((s,t)=>s+t.sqm,0);
+  const customers = Array.from(new Set(outTxs.map(t=>t.project).filter(Boolean)));
+  const productCode = lotTxs[0] ? (lotTxs[0].productCode || lotTxs[0].productId) : '';
+
+  return h('div',{style:{display:'flex',flexDirection:'column',gap:'14px'}},
+    h('div',{className:'card',style:{padding:'14px 16px'}},
+      h('button',{className:'btn btn-ghost',style:{marginBottom:'10px',fontSize:'12px'},
+        onClick:()=>{ui.custSelected=null;render();}},'← กลับไป Lot ทั้งหมด'),
+      h('div',{style:{fontWeight:700,fontSize:'18px',marginBottom:'4px'}},'📦 Lot '+lotName),
+      h('div',{style:{fontSize:'13px',color:'#64748b',fontFamily:'monospace'}},'สินค้า: '+productCode),
+      h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:'10px',marginTop:'12px'}},
+        ...[
+          ['รับเข้ารวม',fmtNum(inSum,3),'#059669'],
+          ['จ่ายออกรวม',fmtNum(outSum,3),'#dc2626'],
+          ['คงเหลือ',fmtNum(inSum-outSum,3),'#0ea5e9'],
+          ['ลูกค้า',customers.length+' ราย','#8b5cf6']
+        ].map(([l,v,c])=>h('div',{style:{background:'#f8fafc',borderRadius:'8px',padding:'10px',textAlign:'center',borderLeft:'3px solid '+c}},
+          h('div',{style:{fontSize:'16px',fontWeight:700,color:c,fontVariantNumeric:'tabular-nums'}},v),
+          h('div',{style:{fontSize:'10px',color:'#94a3b8',marginTop:'3px',textTransform:'uppercase',letterSpacing:'.04em',fontWeight:600}},l)
+        ))
+      )
+    ),
+
+    customers.length>0?h('div',{className:'card',style:{overflow:'hidden'}},
+      h('div',{style:{padding:'12px 16px',borderBottom:'1px solid #e2e8f0',fontWeight:700,fontSize:'13px'}},'👥 ลูกค้าที่ซื้อ Lot นี้ ('+customers.length+')'),
+      h('div',{style:{padding:'10px 16px',display:'flex',flexWrap:'wrap',gap:'6px'}},
+        ...customers.map(cust=>{
+          const custTxs = outTxs.filter(t=>t.project===cust);
+          const sum = custTxs.reduce((s,t)=>s+t.sqm,0);
+          return h('span',{style:{background:'#f1f5f9',padding:'5px 10px',borderRadius:'14px',fontSize:'12px',cursor:'pointer'},
+            onClick:()=>{ui.custView='customer';ui.custSelected=cust;render();}},
+            h('span',{style:{fontWeight:600}},cust),
+            h('span',{style:{color:'#64748b',marginLeft:'5px'}},'· '+fmtNum(sum,2)+' ตร.ม')
+          );
+        })
+      )
+    ):null,
+
+    h('div',{className:'card',style:{overflow:'hidden'}},
+      h('div',{style:{padding:'12px 16px',borderBottom:'1px solid #e2e8f0',fontWeight:700,fontSize:'13px'}},'🕐 ประวัติ Lot นี้ ('+lotTxs.length+')'),
+      h('div',{style:{overflowX:'auto',maxHeight:'500px',overflowY:'auto'}},
+        h('table',{},
+          h('thead',{style:{position:'sticky',top:0,zIndex:5}},h('tr',{},
+            h('th',{},'วันที่'),
+            h('th',{},'ประเภท'),
+            h('th',{},'ลูกค้า'),
+            h('th',{style:{textAlign:'right'}},'จำนวน (ตร.ม)')
+          )),
+          h('tbody',{},...lotTxs.map(tx=>h('tr',{},
+            h('td',{style:{color:'#64748b',fontSize:'12px',whiteSpace:'nowrap'}},fmtDate(tx.date)),
+            h('td',{},h('span',{className:'badge',style:{background:tx.type==='in'?'#dcfce7':'#fee2e2',color:tx.type==='in'?'#166534':'#991b1b'}},tx.type==='in'?'⬇ รับเข้า':'⬆ จ่ายออก')),
+            h('td',{style:{fontSize:'12px',color:'#0f172a'}},tx.project||'-'),
+            h('td',{style:{textAlign:'right',fontWeight:700,color:tx.type==='in'?'#059669':'#dc2626'}},(tx.type==='in'?'+':'-')+fmtNum(tx.sqm,3))
+          )))
+        )
+      )
+    )
+  );
+}
+
+// === PRODUCT VIEW ===
+function ProductView() {
+  if (ui.custSelected) {
+    return ProductDetail(ui.custSelected);
+  }
+
+  const all = getProductSummary();
+  if (all.length === 0) {
+    return h('div',{className:'card empty-state'},
+      h('div',{className:'empty-icon'},'🏷'),
+      h('div',{},'ยังไม่มีข้อมูลสินค้า')
+    );
+  }
+
+  const card = h('div',{className:'card',style:{overflow:'hidden'}});
+  const countLabel = h('span',{});
+
+  card.appendChild(h('div',{style:{padding:'12px 16px',borderBottom:'1px solid #e2e8f0',display:'flex',gap:'10px',alignItems:'center',flexWrap:'wrap'}},
+    h('div',{style:{fontWeight:700,fontSize:'14px',display:'flex',gap:'5px'}},'🏷 สินค้า ',countLabel),
+    (() => {
+      const inp = h('input',{className:'input',style:{maxWidth:'280px',flex:1},placeholder:'🔍 ค้นหารหัส / ชื่อ / Lot / ลูกค้า...'});
+      inp.value = ui.search;
+      inp.addEventListener('input', e => {
+        ui.search = e.target.value;
+        renderProductTbody(tbody, all);
+        countLabel.textContent = '('+tbody.children.length+'/'+all.length+')';
+      });
+      return inp;
+    })()
+  ));
+
+  const tbody = h('tbody');
+  renderProductTbody(tbody, all);
+  countLabel.textContent = '('+tbody.children.length+'/'+all.length+')';
+
+  card.appendChild(h('div',{style:{overflowX:'auto',maxHeight:'calc(100vh - 280px)',overflowY:'auto'}},
+    h('table',{},
+      h('thead',{style:{position:'sticky',top:0,zIndex:5}},h('tr',{},
+        h('th',{},'รหัส'),
+        h('th',{},'สินค้า'),
+        h('th',{style:{textAlign:'right'}},'รับเข้า'),
+        h('th',{style:{textAlign:'right'}},'จ่ายออก'),
+        h('th',{style:{textAlign:'right'}},'Lot'),
+        h('th',{style:{textAlign:'right'}},'ลูกค้า'),
+        h('th',{},'ล่าสุด')
+      )),
+      tbody
+    )
+  ));
+  return card;
+}
+
+function renderProductTbody(tbody, all) {
+  const q = (ui.search||'').toLowerCase();
+  const prodSummary = q ? all.filter(p => {
+    const prod = products.find(x=>x.code===p.productCode || x.id===p.productId);
+    return String(p.productCode||p.productId).toLowerCase().includes(q) ||
+      (prod && String(prod.name).toLowerCase().includes(q)) ||
+      p.lots.some(l => String(l).toLowerCase().includes(q)) ||
+      p.customers.some(c => String(c).toLowerCase().includes(q));
+  }) : all;
+
+  tbody.innerHTML = '';
+  if (prodSummary.length === 0) {
+    tbody.appendChild(h('tr',{},h('td',{colspan:7,style:{padding:'30px',textAlign:'center',color:'#94a3b8'}},'ไม่พบสินค้า')));
+    return;
+  }
+  prodSummary.forEach(p => {
+    const prod = products.find(x=>x.code===p.productCode || x.id===p.productId);
+    tbody.appendChild(h('tr',{style:{cursor:'pointer'},onClick:()=>{ui.custSelected=p.productCode||p.productId;render();}},
+      h('td',{style:{fontFamily:'monospace',fontWeight:600,fontSize:'13px'}},p.productCode||p.productId),
+      h('td',{className:'product-cell'},h('div',{className:'product-name'},prod?prod.name:'-')),
+      h('td',{style:{textAlign:'right',color:'#059669',fontWeight:600}},'+'+fmtNum(p.inSqm,3)),
+      h('td',{style:{textAlign:'right',color:'#dc2626',fontWeight:600}},'-'+fmtNum(p.outSqm,3)),
+      h('td',{style:{textAlign:'right',fontSize:'12px',color:'#64748b'}},p.lotCount),
+      h('td',{style:{textAlign:'right',fontSize:'12px',color:'#64748b'}},p.customerCount+' ราย'),
+      h('td',{style:{color:'#64748b',fontSize:'12px',whiteSpace:'nowrap'}},fmtDate(p.lastDate))
+    ));
+  });
+}
+
+function ProductDetail(code) {
+  const prodTxs = transactions.filter(t => (t.productCode||t.productId) === code).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const prod = products.find(x=>x.code===code || x.id===code);
+  const inSum = prodTxs.filter(t=>t.type==='in').reduce((s,t)=>s+t.sqm,0);
+  const outSum = prodTxs.filter(t=>t.type==='out').reduce((s,t)=>s+t.sqm,0);
+  const lots = Array.from(new Set(prodTxs.map(t=>t.lot).filter(Boolean)));
+  const customers = Array.from(new Set(prodTxs.filter(t=>t.type==='out').map(t=>t.project).filter(Boolean)));
+
+  return h('div',{style:{display:'flex',flexDirection:'column',gap:'14px'}},
+    h('div',{className:'card',style:{padding:'14px 16px'}},
+      h('button',{className:'btn btn-ghost',style:{marginBottom:'10px',fontSize:'12px'},
+        onClick:()=>{ui.custSelected=null;render();}},'← กลับไปรายการสินค้า'),
+      h('div',{style:{fontWeight:700,fontSize:'18px',marginBottom:'4px',fontFamily:'monospace'}},'🏷 '+code),
+      h('div',{style:{fontSize:'13px',color:'#64748b'}},prod?prod.name:'-'),
+      h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))',gap:'10px',marginTop:'12px'}},
+        ...[
+          ['รับเข้ารวม',fmtNum(inSum,3),'#059669'],
+          ['จ่ายออกรวม',fmtNum(outSum,3),'#dc2626'],
+          ['สต็อกเหลือ',fmtNum(prod?(parseFloat(prod.stock)||0):0,3),'#0ea5e9'],
+          ['Lot',lots.length+'','#8b5cf6'],
+          ['ลูกค้า',customers.length+'','#f59e0b']
+        ].map(([l,v,c])=>h('div',{style:{background:'#f8fafc',borderRadius:'8px',padding:'10px',textAlign:'center',borderLeft:'3px solid '+c}},
+          h('div',{style:{fontSize:'15px',fontWeight:700,color:c,fontVariantNumeric:'tabular-nums'}},v),
+          h('div',{style:{fontSize:'10px',color:'#94a3b8',marginTop:'3px',textTransform:'uppercase',letterSpacing:'.04em',fontWeight:600}},l)
+        ))
+      )
+    ),
+
+    // Lots
+    lots.length>0?h('div',{className:'card',style:{overflow:'hidden'}},
+      h('div',{style:{padding:'12px 16px',borderBottom:'1px solid #e2e8f0',fontWeight:700,fontSize:'13px'}},'📦 Lot ของสินค้านี้ ('+lots.length+')'),
+      h('div',{style:{padding:'10px 16px',display:'flex',flexWrap:'wrap',gap:'6px'}},
+        ...lots.map(lt=>{
+          const lotTxs = prodTxs.filter(t=>t.lot===lt);
+          const lotIn = lotTxs.filter(t=>t.type==='in').reduce((s,t)=>s+t.sqm,0);
+          const lotOut = lotTxs.filter(t=>t.type==='out').reduce((s,t)=>s+t.sqm,0);
+          return h('span',{style:{background:'#f1f5f9',padding:'5px 10px',borderRadius:'14px',fontSize:'12px',cursor:'pointer'},
+            onClick:()=>{ui.custView='lot';ui.custSelected=lt;render();}},
+            h('span',{style:{fontFamily:'monospace',fontWeight:600}},lt),
+            h('span',{style:{color:'#64748b',marginLeft:'5px'}},'· เหลือ '+fmtNum(lotIn-lotOut,2)+' ตร.ม')
+          );
+        })
+      )
+    ):null,
+
+    // Customers
+    customers.length>0?h('div',{className:'card',style:{overflow:'hidden'}},
+      h('div',{style:{padding:'12px 16px',borderBottom:'1px solid #e2e8f0',fontWeight:700,fontSize:'13px'}},'👥 ลูกค้าที่ซื้อสินค้านี้ ('+customers.length+')'),
+      h('div',{style:{padding:'10px 16px',display:'flex',flexWrap:'wrap',gap:'6px'}},
+        ...customers.map(cust=>{
+          const custTxs = prodTxs.filter(t=>t.type==='out' && t.project===cust);
+          const sum = custTxs.reduce((s,t)=>s+t.sqm,0);
+          return h('span',{style:{background:'#f1f5f9',padding:'5px 10px',borderRadius:'14px',fontSize:'12px',cursor:'pointer'},
+            onClick:()=>{ui.custView='customer';ui.custSelected=cust;render();}},
+            h('span',{style:{fontWeight:600}},cust),
+            h('span',{style:{color:'#64748b',marginLeft:'5px'}},'· '+fmtNum(sum,2)+' ตร.ม')
+          );
+        })
+      )
+    ):null,
+
+    // Full history
+    h('div',{className:'card',style:{overflow:'hidden'}},
+      h('div',{style:{padding:'12px 16px',borderBottom:'1px solid #e2e8f0',fontWeight:700,fontSize:'13px'}},'🕐 ประวัติสินค้านี้ ('+prodTxs.length+')'),
+      h('div',{style:{overflowX:'auto',maxHeight:'500px',overflowY:'auto'}},
+        h('table',{},
+          h('thead',{style:{position:'sticky',top:0,zIndex:5}},h('tr',{},
+            h('th',{},'วันที่'),
+            h('th',{},'ประเภท'),
+            h('th',{},'Lot'),
+            h('th',{},'ลูกค้า'),
+            h('th',{style:{textAlign:'right'}},'จำนวน (ตร.ม)')
+          )),
+          h('tbody',{},...prodTxs.map(tx=>h('tr',{},
+            h('td',{style:{color:'#64748b',fontSize:'12px',whiteSpace:'nowrap'}},fmtDate(tx.date)),
+            h('td',{},h('span',{className:'badge',style:{background:tx.type==='in'?'#dcfce7':'#fee2e2',color:tx.type==='in'?'#166534':'#991b1b'}},tx.type==='in'?'⬇ รับเข้า':'⬆ จ่ายออก')),
+            h('td',{style:{fontFamily:'monospace',fontSize:'12px',fontWeight:600,color:tx.lot?'#0f172a':'#cbd5e1'}},tx.lot||'-'),
+            h('td',{style:{fontSize:'12px'}},tx.project||'-'),
+            h('td',{style:{textAlign:'right',fontWeight:700,color:tx.type==='in'?'#059669':'#dc2626'}},(tx.type==='in'?'+':'-')+fmtNum(tx.sqm,3))
+          )))
+        )
+      )
+    )
+  );
+}
+
+// ===== MAIN RENDER =====
+function render() {
+  const app=document.getElementById('app');
+  app.innerHTML='';
+
+  // ถ้ายังไม่ล็อกอิน → หน้า Login
+  if (!currentUser) {
+    app.appendChild(LoginPage());
+    if(ui.toast) app.appendChild(h('div',{className:'toast',style:{background:ui.toast.type==='err'?'#dc2626':'#0f172a'}},ui.toast.msg));
+    return;
+  }
+
+  const layout=h('div',{style:{display:'flex',minHeight:'100vh'}});
+
+  if(mobileMenuOpen){
+    const overlay=h('div',{className:'mobile-overlay active',onClick:()=>{mobileMenuOpen=false;render();}});
+    layout.appendChild(overlay);
+  }
+
+  layout.appendChild(Sidebar());
+
+  const main=h('div',{style:{flex:1,minWidth:0,display:'flex',flexDirection:'column'}});
+  main.appendChild(Topbar());
+
+  const content=h('div',{style:{padding:'16px',flex:1}});
+  if(ui.view==='dashboard') content.appendChild(Dashboard());
+  else if(ui.view==='stock') content.appendChild(StockList());
+  else if(ui.view==='in') content.appendChild(canEdit()?PickList('in'):EmptyOrError());
+  else if(ui.view==='out') content.appendChild(canEdit()?PickList('out'):EmptyOrError());
+  else if(ui.view==='history') content.appendChild(History());
+  else if(ui.view==='customers') content.appendChild(Customers());
+  else if(ui.view==='alerts') content.appendChild(Alerts());
+  else if(ui.view==='admin') content.appendChild(AdminPage());
+  else if(ui.view==='addproduct') { ui.modal='addProduct'; ui.view='stock'; content.appendChild(StockList()); }
+
+  main.appendChild(content);
+  layout.appendChild(main);
+  app.appendChild(layout);
+
+  if(ui.modal==='in'||ui.modal==='out'){const m=TxModal(ui.modal);if(m)app.appendChild(m);}
+  else if(ui.modal==='detail'){const m=DetailModal();if(m)app.appendChild(m);}
+  else if(ui.modal==='uploadImage'){const m=UploadImageModal();if(m)app.appendChild(m);}
+  else if(ui.modal==='editProduct'){const m=EditProductModal();if(m)app.appendChild(m);}
+  else if(ui.modal==='cancelTx'){const m=CancelTxModal();if(m)app.appendChild(m);}
+  else if(ui.modal==='addProduct'){const m=AddProductModal();if(m)app.appendChild(m);}
+  else if(ui.modal==='addUser'){const m=AddUserModal();if(m)app.appendChild(m);}
+  else if(ui.modal==='editUser'){const m=EditUserModal();if(m)app.appendChild(m);}
+
+  if(isLoading && products.length===0) {
+    app.appendChild(h('div',{style:{position:'fixed',inset:0,background:'rgba(241,245,249,.9)',zIndex:300,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'14px'}},
+      h('div',{className:'spinner'}),
+      h('div',{style:{color:'#0f172a',fontWeight:600,fontSize:'13px'}},'กำลังดึงข้อมูลจาก Google Sheets...')
+    ));
+  }
+
+  if(ui.toast) app.appendChild(h('div',{className:'toast',style:{background:ui.toast.type==='err'?'#dc2626':'#0f172a'}},ui.toast.msg));
+}
+
+// ===== INIT =====
+currentUser = loadSession();
+render();
+
+// โหลด usernames สำหรับ login dropdown
+fetchUserNames().then(() => {
+  if (!currentUser) render(); // re-render หน้า login ให้มีชื่อ
+});
+
+// ถ้าล็อกอินอยู่แล้ว โหลดข้อมูลเลย
+if (currentUser) {
+  fetchProducts().then(() => fetchTransactions());
+  fetchLots();
+  fetchProjects();
+}
+</script>
+</body>
+</html>
