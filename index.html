@@ -115,7 +115,7 @@
 
 <script>
 // ===== CONFIG =====
-const API_URL = "https://script.google.com/macros/s/AKfycbzX-gQCKy8C6iebegrKoGE4uGJ4yXs7GPD5YKMRPLimnGgdn9jejlOj2nL8pY1mEup7VQ/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxLNuJIaTpy_zjNuVBt5rV1U-Qctc4n2ryqP7bn8klZTDT_7uzlNSLvhRlXahrWbwM3qQ/exec";
 const SESSION_KEY = 'dm_session_v1';
 const SESSION_DAYS = 30;
 
@@ -304,7 +304,8 @@ async function apiSaveTx(type, p, sqm) {
     pcsPerBox: p.pcsPerBox || 1, sqmPerPc: p.sqmPerPc || 0,
     size: p.size || '',
     lot: ui.txForm.lot || '',
-    project: ui.txForm.project || ''
+    project: ui.txForm.project || '',
+    addedBy: currentUser ? currentUser.name : ''
   });
   const res = await fetch(url);
   const data = await res.json();
@@ -598,14 +599,15 @@ function exportCSV(type) {
     });
   } else if (type === 'history') {
     filename = 'DM-History-' + td() + '.csv';
-    rows.push(['วันที่','ประเภท','รหัส','ชื่อสินค้า','จำนวน (ตร.ม)','Lot','โปรเจค','ที่เก็บ','หมายเหตุ','ยกเลิก']);
+    rows.push(['วันที่','ประเภท','รหัส','ชื่อสินค้า','จำนวน (ตร.ม)','Lot','โปรเจค','ที่เก็บ','บันทึกโดย','หมายเหตุ','ยกเลิก']);
     getFilteredTx().forEach(tx => {
       const p = products.find(x=>x.id===tx.productId||x.code===tx.productCode);
       rows.push([
         tx.date, tx.type==='in'?'รับเข้า':'จ่ายออก',
         tx.productCode||tx.productId, p?p.name:'',
         (tx.type==='in'?'+':'-')+fmtNum(tx.sqm,4),
-        tx.lot||'', tx.project||'', tx.location||'', tx.note||'',
+        tx.lot||'', tx.project||'', tx.location||'',
+        tx.addedBy||'', tx.note||'',
         tx.cancelled?'ยกเลิก':''
       ]);
     });
@@ -1041,6 +1043,7 @@ function History() {
             h('th',{style:{width:'90px'}},'Lot'),
             h('th',{className:'desktop-only',style:{width:'140px'}},'โปรเจค'),
             h('th',{className:'desktop-only'},'ที่เก็บ'),
+            h('th',{className:'desktop-only'},'บันทึกโดย'),
             h('th',{className:'desktop-only'},'หมายเหตุ / ยกเลิกโดย'),
             h('th',{style:{width:'80px'}},'')
           )
@@ -1088,6 +1091,7 @@ function renderHistoryTbody(tbody) {
       h('td',{style:{fontFamily:'monospace',fontSize:'12px',color:tx.lot?'#0f172a':'#cbd5e1',fontWeight:tx.lot?600:400}},tx.lot||'-'),
       h('td',{className:'desktop-only',style:{color:'#475569',fontSize:'12px'}},tx.project||'-'),
       h('td',{className:'desktop-only',style:{color:'#64748b',fontSize:'12px'}},tx.location||'-'),
+      h('td',{className:'desktop-only',style:{color:'#64748b',fontSize:'12px',fontWeight:500}},tx.addedBy||'-'),
       h('td',{className:'desktop-only',style:{color:'#64748b',fontSize:'12px'}},
         isCancelled
           ? h('span',{style:{color:'#dc2626',fontSize:'11px'}},'ยกเลิกโดย: '+(tx.cancelBy||'-')+' · '+(tx.cancelReason||'-'))
