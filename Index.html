@@ -1253,7 +1253,10 @@ function TxModal(type) {
 
 // ===== DETAIL MODAL =====
 function DetailModal() {
-  const p=getSelected(); if(!p) return null;
+  // ดึงข้อมูลสินค้าล่าสุดจาก products array โดยตรง
+  const selected = getSelected();
+  if (!selected) return null;
+  const p = products.find(x => x.id === selected.id) || selected;
   const stock=parseFloat(p.stock)||0;
   const status=getStatus(p);
   const boxes=Math.floor(stock/((parseFloat(p.pcsPerBox)||1)*(parseFloat(p.sqmPerPc)||1)));
