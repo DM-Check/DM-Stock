@@ -115,7 +115,7 @@
 
 <script>
 // ===== CONFIG =====
-const API_URL = "https://script.google.com/macros/s/AKfycbzWT78xICC8ZQwHxLh9EbLOIpn8XOoaa1bSi7GQN76S_UfyRTsgxxO-6bRTXhR4uJFISQ/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbw4Edi8iWdbLFoKnhaiZo8MTTwtOpJdeRJFFDaT5HllQKQNHTPDUl_nzH8mpmpgUKw2iQ/exec";
 const SESSION_KEY = 'dm_session_v1';
 const SESSION_DAYS = 30;
 
@@ -330,12 +330,15 @@ function driveThumb(url, size=300) {
 }
 
 async function apiUploadImage(productId, fileName, mimeType, base64) {
-  const url = API_URL + "?" + new URLSearchParams({
-    action: 'uploadImage',
-    productId, fileName, mimeType,
-    base64
+  // ใช้ POST เพราะ base64 ยาวเกินกว่าจะส่งผ่าน URL
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      action: 'uploadImage',
+      productId, fileName, mimeType, base64
+    }).toString()
   });
-  const res = await fetch(url);
   return await res.json();
 }
 
