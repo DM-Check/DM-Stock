@@ -1109,9 +1109,9 @@ function PickList(type) {
       h('table',{},
         h('thead',{style:{position:'sticky',top:0,zIndex:5}},
           h('tr',{},
-            h('th',{style:{width:'110px'}},'ทำล่าสุด'),
-            h('th',{style:{width:'120px'}},'รหัส'),
-            h('th',{style:{width:'52px'}},''),
+            h('th',{style:{width:'90px'}},'ทำล่าสุด'),
+            h('th',{className:'desktop-only',style:{width:'120px'}},'รหัส'),
+            h('th',{style:{width:'40px'}},''),
             h('th',{},'สินค้า'),
             h('th',{style:{width:'120px'}},'Lot'),
             h('th',{style:{textAlign:'right'}},'สต็อก'),
@@ -1162,7 +1162,7 @@ function renderPickTbody(tbody, type) {
 
     // thumbnail
     const thumbUrl = driveThumb(p.imageUrl, 60);
-    const thumbWrap = h('div',{style:{width:'48px',height:'48px',borderRadius:'8px',overflow:'hidden',border:'1px solid #e2e8f0',background:'#f8fafc',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}});
+    const thumbWrap = h('div',{style:{width:'36px',height:'36px',borderRadius:'6px',overflow:'hidden',border:'1px solid #e2e8f0',background:'#f8fafc',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}});
     if (thumbUrl) {
       const img = document.createElement('img');
       img.src = thumbUrl;
@@ -1183,10 +1183,11 @@ function renderPickTbody(tbody, type) {
         render();
       }},
       h('td',{style:{color:'#64748b',fontSize:'12px',whiteSpace:'nowrap'}},p.lastTxDate?fmtDate(p.lastTxDate):''),
-      h('td',{style:{fontFamily:'monospace',color:'#0f172a',fontSize:'13px',fontWeight:600,whiteSpace:'nowrap'}},p.code||p.id),
-      h('td',{style:{width:'52px',padding:'4px 6px'}},thumbWrap),
+      h('td',{className:'desktop-only',style:{fontFamily:'monospace',color:'#0f172a',fontSize:'13px',fontWeight:600,whiteSpace:'nowrap'}},p.code||p.id),
+      h('td',{style:{width:'40px',padding:'4px 4px'}},thumbWrap),
       h('td',{className:'product-cell'},
         h('div',{className:'product-name'},p.name),
+        h('div',{className:'mobile-code',style:{fontSize:'10px',color:'#94a3b8',fontFamily:'monospace'}},p.code||p.id),
         h('div',{className:'product-meta'},(p.type||'')+' · '+(p.size||''))
       ),
       h('td',{style:{fontSize:'11px',color:'#64748b',maxWidth:'120px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},
