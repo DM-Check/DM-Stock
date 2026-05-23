@@ -83,6 +83,23 @@
     .mobile-menu-btn{display:flex!important}
     .desktop-only{display:none!important}
     .stat-grid{grid-template-columns:repeat(2,1fr)!important}
+
+    /* Dashboard — 1 column บนมือถือ */
+    .dashboard-grid{grid-template-columns:1fr!important}
+
+    /* Modal เต็มหน้าจอบนมือถือ */
+    .modal{max-width:100%!important;max-height:100vh!important;border-radius:12px 12px 0 0!important;margin-top:auto}
+    .modal-overlay{align-items:flex-end!important;padding:0!important}
+
+    /* Filter bar บนมือถือ wrap ได้ */
+    .filter-bar{gap:6px!important}
+    .filter-bar input{min-width:0;flex:1}
+
+    /* ตาราง scroll ได้ */
+    table{font-size:12px}
+
+    /* Lot dropdown */
+    datalist{display:block}
   }
   .mobile-menu-btn{display:none;background:#f1f5f9;border:none;padding:8px;border-radius:6px;cursor:pointer;align-items:center;justify-content:center}
   .mobile-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:99}
@@ -615,14 +632,12 @@ function Sidebar() {
       ...items.map(it=>h('div',{
         className:'nav-item'+(ui.view===it.k?' active':''),
         onClick:()=>{
-          ui.view=it.k;mobileMenuOpen=false;
-          if(it.k==='history') {
-            fetchTransactions();
-          }
-          // ถ้าออกจากหน้าประวัติ → markAsRead
+          // ออกจากหน้าประวัติ → markAsRead ก่อน
           if(ui.view==='history' && it.k!=='history') {
             markAsRead();
           }
+          ui.view=it.k; ui.search=''; mobileMenuOpen=false;
+          if(it.k==='history') fetchTransactions();
           if(it.k==='admin') fetchAllUsers();
           render();
         }
@@ -770,7 +785,7 @@ function Dashboard() {
     ),
 
     // 2-column layout
-    h('div',{style:{display:'grid',gridTemplateColumns:'2fr 1fr',gap:'14px'}},
+    h('div',{className:'dashboard-grid',style:{display:'grid',gridTemplateColumns:'2fr 1fr',gap:'14px'}},
       // Left: Recent first, then Low stock
       h('div',{style:{display:'flex',flexDirection:'column',gap:'14px',minWidth:0}},
         recent.length>0?h('div',{className:'card'},
@@ -1375,20 +1390,50 @@ function TxModal(type) {
 
   let inpLot;
   if (type === 'in') {
-    // รับเข้า: input + suggestion จาก lot ที่มีอยู่
+    // รับเข้า: input + custom suggestion (รองรับ iOS)
     const lotWrap = h('div',{style:{position:'relative'}});
-    inpLot = h('input',{className:'input',placeholder:'เช่น Lot A, 2025-01',list:'lot-suggestions'});
+    inpLot = h('input',{className:'input',placeholder:'เช่น Lot A, 2025-01'});
     inpLot.value = ui.txForm.lot || '';
-    const datalist = h('datalist',{id:'lot-suggestions'});
-    productLots.forEach(l => datalist.appendChild(h('option',{value:l.lot})));
+
+    // custom dropdown สำหรับ suggestion
+    const suggBox = h('div',{style:{
+      position:'absolute',top:'100%',left:0,right:0,zIndex:50,
+      background:'white',border:'1px solid #e2e8f0',borderRadius:'7px',
+      boxShadow:'0 4px 12px rgba(0,0,0,.1)',display:'none',maxHeight:'180px',overflowY:'auto',marginTop:'2px'
+    }});
+
+    function showSuggestions(q) {
+      const filtered = q
+        ? productLots.filter(l => String(l.lot).toLowerCase().includes(q.toLowerCase()))
+        : productLots;
+      suggBox.innerHTML = '';
+      if (filtered.length === 0) { suggBox.style.display='none'; return; }
+      filtered.forEach(l => {
+        const item = h('div',{style:{padding:'8px 12px',cursor:'pointer',fontSize:'13px',borderBottom:'1px solid #f1f5f9'}},
+          h('span',{style:{fontWeight:600,fontFamily:'monospace'}},l.lot),
+          h('span',{style:{color:'#64748b',marginLeft:'8px',fontSize:'11px'}},'เหลือ '+fmtNum(l.stock,3)+' ตร.ม')
+        );
+        item.addEventListener('mousedown', e => { e.preventDefault(); inpLot.value = l.lot; suggBox.style.display='none'; checkNewLot(); });
+        item.addEventListener('touchstart', e => { e.preventDefault(); inpLot.value = l.lot; suggBox.style.display='none'; checkNewLot(); });
+        suggBox.appendChild(item);
+      });
+      suggBox.style.display = 'block';
+    }
+
+    inpLot.addEventListener('focus', () => showSuggestions(inpLot.value));
+    inpLot.addEventListener('input', () => { showSuggestions(inpLot.value); checkNewLot(); });
+    inpLot.addEventListener('blur', () => setTimeout(()=>{ suggBox.style.display='none'; }, 200));
+
     lotWrap.appendChild(inpLot);
-    lotWrap.appendChild(datalist);
+    lotWrap.appendChild(suggBox);
+
     function checkNewLot() {
       const v = inpLot.value.trim();
       if (!v) { lotWarn.style.display='none'; return; }
       const exists = productLots.some(l => String(l.lot).trim() === v);
       if (!exists) {
         lotWarn.innerHTML='⚠ เป็น Lot ใหม่ ระบบจะสร้างให้อัตโนมัติ';
+        lotWarn.style.color='#d97706';
         lotWarn.style.display='block';
       } else {
         const lot = productLots.find(l => String(l.lot).trim() === v);
