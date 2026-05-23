@@ -747,6 +747,7 @@ function StockList() {
         h('thead',{style:{position:'sticky',top:0,zIndex:5}},
           h('tr',{},
             h('th',{style:{width:'140px'}},'รหัส'),
+            h('th',{style:{width:'48px'}},''),
             h('th',{},'สินค้า'),
             h('th',{className:'desktop-only'},'ประเภท'),
             h('th',{style:{textAlign:'right'}},'สต็อก'),
@@ -764,18 +765,47 @@ function StockList() {
   );
 }
 
+function openLightbox(imageUrl) {
+  const lightbox = document.createElement('div');
+  lightbox.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:999;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
+  const bigImg = document.createElement('img');
+  bigImg.src = driveThumb(imageUrl, 1200) || imageUrl;
+  bigImg.style.cssText='max-width:90vw;max-height:90vh;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.5)';
+  lightbox.appendChild(bigImg);
+  lightbox.addEventListener('click',()=>lightbox.remove());
+  document.body.appendChild(lightbox);
+}
+
 function renderStockTbody(tbody) {
   const filtered = getFiltered();
   tbody.innerHTML = '';
   if (filtered.length === 0) {
-    tbody.appendChild(h('tr',{},h('td',{colspan:6,style:{padding:'40px',textAlign:'center',color:'#94a3b8'}},'ไม่พบสินค้า')));
+    tbody.appendChild(h('tr',{},h('td',{colspan:7,style:{padding:'40px',textAlign:'center',color:'#94a3b8'}},'ไม่พบสินค้า')));
     return;
   }
   filtered.forEach(p => {
     const boxes = Math.floor(p.stock/((parseFloat(p.pcsPerBox)||1)*(parseFloat(p.sqmPerPc)||1)));
+    const thumbUrl = driveThumb(p.imageUrl, 48);
+
+    // thumbnail cell
+    const thumbCell = h('td',{style:{width:'40px',padding:'6px 4px 6px 12px'}});
+    const thumbWrap = h('div',{style:{width:'36px',height:'36px',borderRadius:'6px',overflow:'hidden',border:'1px solid #e2e8f0',background:'#f8fafc',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}});
+    if (thumbUrl) {
+      const img = document.createElement('img');
+      img.src = thumbUrl;
+      img.style.cssText='width:100%;height:100%;object-fit:cover;cursor:zoom-in';
+      img.onerror = () => { thumbWrap.innerHTML='<span style="font-size:16px;color:#cbd5e1">🖼</span>'; };
+      img.addEventListener('click', e => { e.stopPropagation(); openLightbox(p.imageUrl); });
+      thumbWrap.appendChild(img);
+    } else {
+      thumbWrap.appendChild(h('span',{style:{fontSize:'16px',color:'#e2e8f0'}},'🖼'));
+    }
+    thumbCell.appendChild(thumbWrap);
+
     tbody.appendChild(h('tr',{style:{cursor:'pointer'},
       onClick:()=>{ui.selectedId=p.id;ui.modal='detail';render();}},
       h('td',{style:{fontFamily:'monospace',color:'#0f172a',fontSize:'13px',fontWeight:600,whiteSpace:'nowrap'}},p.code||p.id),
+      thumbCell,
       h('td',{className:'product-cell'},
         h('div',{className:'product-name'},p.name),
         h('div',{className:'product-meta'},p.size||'')
