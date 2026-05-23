@@ -115,7 +115,7 @@
 
 <script>
 // ===== CONFIG =====
-const API_URL = "https://script.google.com/macros/s/AKfycbz8YBhmSz51-dIjUty-Jj0Ak9yuQKJL0hjA0qFK0ioA-oAzImxu-jUU5VqI4SEnZnojDA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbw4QGT2Yas2mKJpUqR-tlCvR3tcPFm_2YdWwW6e3o9zSfseEmHySi9cnJuFQj3iWpQpEA/exec";
 const SESSION_KEY = 'dm_session_v1';
 const SESSION_DAYS = 30;
 
@@ -234,28 +234,38 @@ async function fetchProducts() {
 }
 
 async function fetchTransactions() {
-  isLoadingTx = true; render();
+  isLoadingTx = true;
+  // อัปเดต count label ถ้าอยู่หน้าประวัติ
+  const countEl = document.getElementById('history-count');
+  if (countEl) countEl.textContent = '⏳ กำลังโหลด...';
   try {
     const res = await fetch(API_URL + "?action=getTransactions");
     const data = await res.json();
     if (data.success && data.transactions) {
       transactions = data.transactions;
-      // เรียงใหม่ฝั่ง client: ใช้ timestamp ก่อน ถ้าไม่มีใช้ date
       transactions.sort((a, b) => {
         const tA = a.timestamp || 0;
         const tB = b.timestamp || 0;
         if (tA && tB && tA !== tB) return tB - tA;
-        // ไม่มี timestamp ใช้ date
         const dA = new Date(a.date).getTime();
         const dB = new Date(b.date).getTime();
         if (dB !== dA) return dB - dA;
-        // วันเดียวกัน + ไม่มี timestamp → ใช้ rowIndex (รับเข้าก่อน)
         if (a.type !== b.type) return a.type === 'in' ? -1 : 1;
         return (b.rowIndex||0) - (a.rowIndex||0);
       });
     }
   } catch(e) { console.error('Load tx failed:', e); }
-  isLoadingTx = false; render();
+  isLoadingTx = false;
+
+  // ถ้าหน้าประวัติเปิดอยู่ → อัปเดต tbody โดยตรงไม่ต้อง render ใหม่ทั้งหน้า
+  const tbody = document.getElementById('history-tbody');
+  const countEl2 = document.getElementById('history-count');
+  if (tbody) {
+    renderHistoryTbody(tbody);
+    if (countEl2) countEl2.textContent = getFilteredTx().length.toLocaleString() + ' รายการ';
+  } else {
+    render();
+  }
 }
 
 async function fetchLots() {
@@ -836,6 +846,11 @@ function renderPickTbody(tbody, type) {
 
 // ===== HISTORY =====
 function History() {
+  // โหลดอัตโนมัติถ้ายังไม่มีข้อมูล
+  if (transactions.length === 0 && !isLoadingTx) {
+    fetchTransactions();
+  }
+
   return h('div',{className:'card',style:{overflow:'hidden'}},
     h('div',{className:'filter-bar'},
       (() => {
@@ -860,10 +875,13 @@ function History() {
         isLoadingTx?'⏳ กำลังโหลด...':getFilteredTx().length.toLocaleString()+' รายการ'
       )
     ),
-    transactions.length===0&&!isLoadingTx?h('div',{className:'empty-state'},
+    isLoadingTx?h('div',{style:{padding:'50px',textAlign:'center',color:'#64748b'}},
+      h('div',{className:'spinner',style:{margin:'0 auto 12px'}}),
+      h('div',{style:{fontSize:'13px'}},'กำลังโหลดประวัติจาก Sheet...')
+    ):transactions.length===0?h('div',{className:'empty-state'},
       h('div',{className:'empty-icon'},'🕐'),
       h('div',{style:{fontWeight:600,marginBottom:'8px'}},'ยังไม่มีประวัติการเคลื่อนไหว'),
-      h('button',{className:'btn btn-primary',onClick:()=>fetchTransactions()},'🔄 โหลดประวัติจาก Sheet')
+      h('button',{className:'btn btn-primary',onClick:()=>fetchTransactions()},'🔄 โหลดใหม่')
     ):h('div',{style:{overflowX:'auto',maxHeight:'calc(100vh - 200px)',overflowY:'auto'}},
       h('table',{},
         h('thead',{style:{position:'sticky',top:0,zIndex:5}},
