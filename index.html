@@ -115,7 +115,7 @@
 
 <script>
 // ===== CONFIG =====
-const API_URL = "https://script.google.com/macros/s/AKfycbxLNuJIaTpy_zjNuVBt5rV1U-Qctc4n2ryqP7bn8klZTDT_7uzlNSLvhRlXahrWbwM3qQ/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwyRHkmKiWlqPEr2dKOvhaEMz9Gt7kmKZMAw0J9LeePwauqpp4hjHU5rj7PAN7ksWPn6Q/exec";
 const SESSION_KEY = 'dm_session_v1';
 const SESSION_DAYS = 30;
 
@@ -123,6 +123,8 @@ const SESSION_DAYS = 30;
 let currentUser = null; // { name, email, role }
 let userNames = [];     // รายชื่อสำหรับ dropdown
 let allUsers = [];      // เฉพาะ admin
+let myLastRead = null;  // timestamp ที่ตัวเองอ่านประวัติล่าสุด
+let unreadCount = 0;    // จำนวนรายการที่ยังไม่อ่าน
 
 function loadSession() {
   try {
@@ -149,6 +151,50 @@ function clearSession() {
 
 function canEdit() { return currentUser && (currentUser.role === 'admin' || currentUser.role === 'poweruser'); }
 function isAdmin() { return currentUser && currentUser.role === 'admin'; }
+
+async function fetchLastRead() {
+  if (!currentUser) return;
+  try {
+    const url = API_URL + "?" + new URLSearchParams({ action: 'getLastRead', name: currentUser.name });
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.success) {
+      myLastRead = data.lastRead; // timestamp ms
+      updateUnreadCount();
+    }
+  } catch(e) {}
+}
+
+async function markAsRead() {
+  if (!currentUser) return;
+  myLastRead = Date.now();
+  unreadCount = 0;
+  render(); // อัปเดต badge ทันที
+  try {
+    const url = API_URL + "?" + new URLSearchParams({ action: 'updateLastRead', name: currentUser.name });
+    await fetch(url);
+  } catch(e) {}
+}
+
+function updateUnreadCount() {
+  if (!currentUser || !myLastRead) {
+    // ถ้าไม่เคยอ่านเลย → นับทุกรายการที่คนอื่นบันทึก
+    unreadCount = transactions.filter(tx =>
+      !tx.cancelled &&
+      tx.addedBy &&
+      tx.addedBy !== currentUser?.name
+    ).length;
+  } else {
+    // นับรายการที่ timestamp > lastRead และคนอื่นบันทึก
+    unreadCount = transactions.filter(tx =>
+      !tx.cancelled &&
+      tx.timestamp &&
+      tx.timestamp > myLastRead &&
+      tx.addedBy &&
+      tx.addedBy !== currentUser?.name
+    ).length;
+  }
+}
 
 async function fetchUserNames() {
   try {
@@ -260,6 +306,7 @@ async function fetchTransactions() {
         if (a.type !== b.type) return a.type === 'in' ? -1 : 1;
         return (b.rowIndex||0) - (a.rowIndex||0);
       });
+      updateUnreadCount(); // อัปเดต badge หลังโหลดเสร็จ
     }
   } catch(e) { console.error('Load tx failed:', e); }
   isLoadingTx = false;
@@ -529,7 +576,7 @@ function Sidebar() {
       {k:'in',i:'⬇',l:'รับสินค้าเข้า'},
       {k:'out',i:'⬆',l:'จ่ายสินค้าออก'},
     ]:[]),
-    {k:'history',i:'🕐',l:'ประวัติ', badge:transactions.length||null},
+    {k:'history',i:'🕐',l:'ประวัติ', badge:unreadCount||null, badgeColor:'#ef4444'},
     {k:'customers',i:'👥',l:'ลูกค้า / Lot'},
     ...(canEdit()?[{k:'addproduct',i:'➕',l:'เพิ่มสินค้าใหม่'}]:[]),
     ...(isViewer?[]:isAdmin()?[{k:'alerts',i:'⚠',l:'แจ้งเตือน'}]:[]),
@@ -558,7 +605,7 @@ function Sidebar() {
         className:'nav-item'+(ui.view===it.k?' active':''),
         onClick:()=>{
           ui.view=it.k;mobileMenuOpen=false;
-          if(it.k==='history') fetchTransactions();
+          if(it.k==='history') { fetchTransactions(); markAsRead(); }
           if(it.k==='admin') fetchAllUsers();
           render();
         }
@@ -1599,6 +1646,7 @@ function LoginPage() {
       showToast('ยินดีต้อนรับ '+currentUser.name+' 👋');
       await fetchProducts();
       fetchTransactions(); fetchLots(); fetchProjects();
+      fetchLastRead(); // โหลด lastRead หลัง login
       render();
     } else {
       errMsg.textContent = result.error || 'ล็อกอินไม่สำเร็จ';
@@ -3085,6 +3133,7 @@ if (currentUser) {
   fetchProducts().then(() => fetchTransactions());
   fetchLots();
   fetchProjects();
+  fetchLastRead();
 }
 </script>
 </body>
