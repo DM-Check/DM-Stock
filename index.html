@@ -115,7 +115,7 @@
 
 <script>
 // ===== CONFIG =====
-const API_URL = "https://script.google.com/macros/s/AKfycbzeTAOYDynJTPqsWZeYuSiVkBLn8PIGdPFTSWTVgP1XZ1TJErx1mv4qFjvD8sae7_MJDw/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbz8YBhmSz51-dIjUty-Jj0Ak9yuQKJL0hjA0qFK0ioA-oAzImxu-jUU5VqI4SEnZnojDA/exec";
 const SESSION_KEY = 'dm_session_v1';
 const SESSION_DAYS = 30;
 
@@ -1216,7 +1216,11 @@ function DetailModal() {
     h('div',{className:'modal',style:{padding:'24px',maxWidth:'600px'}},
       h('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:'16px'}},
         h('div',{style:{fontWeight:700,fontSize:'16px'}},'รายละเอียดสินค้า'),
-        h('button',{className:'btn btn-ghost',style:{padding:'5px 9px'},onClick:()=>{ui.modal=null;render();}},'✕')
+        h('div',{style:{display:'flex',gap:'6px'}},
+          canEdit()?h('button',{className:'btn btn-outline',style:{padding:'5px 10px',fontSize:'12px'},
+            onClick:()=>{ui.modal='editProduct';render();}},'✏️ แก้ไข'):null,
+          h('button',{className:'btn btn-ghost',style:{padding:'5px 9px'},onClick:()=>{ui.modal=null;render();}},'✕')
+        )
       ),
       h('div',{style:{background:'#f8fafc',borderRadius:'10px',padding:'14px',marginBottom:'14px',border:'1px solid #e2e8f0'}},
         h('div',{style:{display:'flex',alignItems:'flex-start',gap:'12px',marginBottom:'12px'}},
@@ -1375,6 +1379,154 @@ function LoginPage() {
   card.appendChild(h('div',{style:{textAlign:'center',marginTop:'16px',fontSize:'12px',color:'#94a3b8'}},'หากลืมรหัสผ่าน กรุณาติดต่อ Admin'));
   wrap.appendChild(card);
   return wrap;
+}
+
+// ===== EDIT PRODUCT MODAL =====
+function EditProductModal() {
+  const p = getSelected(); if (!p) return null;
+  const isAdminUser = isAdmin();
+
+  const overlay = h('div',{className:'modal-overlay',onClick:e=>{if(e.target===overlay&&!isSaving){ui.modal='detail';render();}}});
+  const modal = h('div',{className:'modal',style:{padding:'24px',maxWidth:'560px'}});
+
+  modal.appendChild(h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'18px'}},
+    h('div',{},
+      h('div',{style:{fontWeight:700,fontSize:'16px'}},'✏️ แก้ไขสินค้า'),
+      h('div',{style:{color:'#64748b',fontSize:'12px',marginTop:'2px'}},p.name)
+    ),
+    h('button',{className:'btn btn-ghost',style:{padding:'5px 9px'},onClick:()=>{ui.modal='detail';render();}},'✕')
+  ));
+
+  const errDiv = h('div',{style:{background:'#fee2e2',color:'#991b1b',borderRadius:'8px',padding:'9px 12px',fontSize:'13px',marginBottom:'12px',display:'none'}});
+  modal.appendChild(errDiv);
+
+  // ฟิลด์ต่างๆ
+  const inpCode = h('input',{className:'input',placeholder:'รหัสสินค้า',value:p.id||''});
+  const inpName = h('input',{className:'input',placeholder:'ชื่อ/รายละเอียด',value:p.name||''});
+  const inpType = h('input',{className:'input',placeholder:'ประเภท',value:p.type||'',list:'edit-type-list'});
+  const typeList = h('datalist',{id:'edit-type-list'});
+  Array.from(new Set(products.map(x=>x.type).filter(Boolean))).sort().forEach(t=>{
+    const opt=document.createElement('option'); opt.value=t; typeList.appendChild(opt);
+  });
+  modal.appendChild(typeList);
+
+  const inpPcsPerBox = h('input',{type:'number',className:'input',min:'0',step:'1',value:p.pcsPerBox||''});
+  const inpSqmPerPc = h('input',{type:'number',className:'input',min:'0',step:'0.0001',value:p.sqmPerPc||''});
+  const inpSize = h('input',{className:'input',placeholder:'เช่น 296*297',value:p.size||''});
+  const inpChipSize = h('input',{className:'input',placeholder:'เช่น 15*297',value:p.chipSize||''});
+  const inpMinQty = h('input',{type:'number',className:'input',min:'0',step:'0.1',value:p.minQty||''});
+
+  // warning รหัสซ้ำ
+  const codeWarn = h('div',{style:{fontSize:'11px',marginTop:'4px',display:'none',fontWeight:500}});
+  inpCode.addEventListener('input',()=>{
+    const v = inpCode.value.trim();
+    if (!v || v === p.id) { codeWarn.style.display='none'; return; }
+    const exists = products.find(x=>x.id===v||x.code===v);
+    if (exists && exists.id !== p.id) {
+      codeWarn.innerHTML='⚠ รหัสนี้มีอยู่แล้ว: <b>'+exists.name+'</b>';
+      codeWarn.style.color='#dc2626'; codeWarn.style.display='block';
+    } else {
+      codeWarn.innerHTML='✓ รหัสนี้ใช้ได้';
+      codeWarn.style.color='#059669'; codeWarn.style.display='block';
+    }
+  });
+
+  // preview
+  const preview = h('div',{style:{fontSize:'12px',color:'#64748b',background:'#f8fafc',padding:'8px 12px',borderRadius:'6px',marginTop:'6px',display:'none'}});
+  function updatePreview() {
+    const pcs = parseFloat(inpPcsPerBox.value)||0;
+    const sqm = parseFloat(inpSqmPerPc.value)||0;
+    if (pcs>0 && sqm>0) {
+      preview.style.display='block';
+      preview.textContent = '1 กล่อง = '+pcs+' แผ่น × '+sqm+' ตร.ม = '+(pcs*sqm).toFixed(4)+' ตร.ม/กล่อง';
+    } else preview.style.display='none';
+  }
+  inpPcsPerBox.addEventListener('input',updatePreview);
+  inpSqmPerPc.addEventListener('input',updatePreview);
+  updatePreview();
+
+  const form = h('div',{style:{display:'flex',flexDirection:'column',gap:'12px'}});
+
+  // รหัส (Admin เท่านั้น)
+  form.appendChild(h('div',{},
+    h('label',{className:'field-label'},isAdminUser?'รหัสสินค้า (Admin เท่านั้น)':'รหัสสินค้า (ดูได้อย่างเดียว)'),
+    isAdminUser ? h('div',{},inpCode,codeWarn) :
+    h('div',{style:{background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:'7px',padding:'9px 12px',fontSize:'13px',fontFamily:'monospace',color:'#64748b'}},p.id)
+  ));
+
+  form.appendChild(h('div',{},h('label',{className:'field-label'},'ชื่อ/รายละเอียด ★'),inpName));
+  form.appendChild(h('div',{},h('label',{className:'field-label'},'ประเภท ★'),inpType));
+  form.appendChild(h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}},
+    h('div',{},h('label',{className:'field-label'},'แผ่น/กล่อง'),inpPcsPerBox),
+    h('div',{},h('label',{className:'field-label'},'ตร.ม/แผ่น'),inpSqmPerPc)
+  ));
+  form.appendChild(preview);
+  form.appendChild(h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}},
+    h('div',{},h('label',{className:'field-label'},'Sheet size'),inpSize),
+    h('div',{},h('label',{className:'field-label'},'Chip size'),inpChipSize)
+  ));
+  form.appendChild(h('div',{},h('label',{className:'field-label'},'สต็อกขั้นต่ำ (ตร.ม)'),inpMinQty));
+
+  const saveBtn = h('button',{className:'btn btn-primary',style:{flex:2,justifyContent:'center',padding:'10px'}},'✓ บันทึกการแก้ไข → Sheet');
+  saveBtn.addEventListener('click', async()=>{
+    const name = inpName.value.trim();
+    const type = inpType.value.trim();
+    if (!name) { errDiv.textContent='กรุณากรอกชื่อสินค้า'; errDiv.style.display='block'; return; }
+    if (!type) { errDiv.textContent='กรุณากรอกประเภท'; errDiv.style.display='block'; return; }
+
+    const newCode = inpCode.value.trim();
+    if (isAdminUser && newCode && newCode !== p.id) {
+      const dup = products.find(x=>(x.id===newCode||x.code===newCode) && x.id!==p.id);
+      if (dup) { errDiv.textContent='รหัส "'+newCode+'" มีอยู่แล้ว'; errDiv.style.display='block'; return; }
+    }
+
+    saveBtn.disabled=true; isSaving=true;
+    saveBtn.textContent='⏳ กำลังบันทึก...';
+    errDiv.style.display='none';
+
+    try {
+      const url = API_URL + "?" + new URLSearchParams({
+        action: 'updateProduct',
+        targetId: p.id,
+        newCode: isAdminUser ? newCode : '',
+        name, type,
+        pcsPerBox: inpPcsPerBox.value.trim(),
+        sqmPerPc: inpSqmPerPc.value.trim(),
+        size: inpSize.value.trim(),
+        chipSize: inpChipSize.value.trim(),
+        minQty: inpMinQty.value.trim(),
+      });
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data.success) {
+        isSaving=false; ui.modal=null;
+        showToast('✓ แก้ไขสินค้าสำเร็จ');
+        await fetchProducts();
+        render();
+      } else {
+        errDiv.textContent = data.error || 'เกิดข้อผิดพลาด';
+        errDiv.style.display='block';
+        saveBtn.disabled=false; isSaving=false;
+        saveBtn.textContent='✓ บันทึกการแก้ไข → Sheet';
+      }
+    } catch(e) {
+      errDiv.textContent='❌ '+e.message;
+      errDiv.style.display='block';
+      saveBtn.disabled=false; isSaving=false;
+      saveBtn.textContent='✓ บันทึกการแก้ไข → Sheet';
+    }
+  });
+
+  form.appendChild(h('div',{style:{display:'flex',gap:'8px',marginTop:'4px'}},
+    h('button',{className:'btn btn-outline',style:{flex:1,justifyContent:'center',padding:'10px'},
+      onClick:()=>{ui.modal='detail';render();}},'← กลับ'),
+    saveBtn
+  ));
+
+  modal.appendChild(form);
+  overlay.appendChild(modal);
+  return overlay;
 }
 
 // ===== CANCEL TRANSACTION MODAL =====
@@ -2428,6 +2580,7 @@ function render() {
 
   if(ui.modal==='in'||ui.modal==='out'){const m=TxModal(ui.modal);if(m)app.appendChild(m);}
   else if(ui.modal==='detail'){const m=DetailModal();if(m)app.appendChild(m);}
+  else if(ui.modal==='editProduct'){const m=EditProductModal();if(m)app.appendChild(m);}
   else if(ui.modal==='cancelTx'){const m=CancelTxModal();if(m)app.appendChild(m);}
   else if(ui.modal==='addProduct'){const m=AddProductModal();if(m)app.appendChild(m);}
   else if(ui.modal==='addUser'){const m=AddUserModal();if(m)app.appendChild(m);}
