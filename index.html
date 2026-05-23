@@ -82,24 +82,35 @@
     .sidebar.open{left:0;box-shadow:0 0 40px rgba(0,0,0,.3)}
     .mobile-menu-btn{display:flex!important}
     .desktop-only{display:none!important}
+
+    /* KPI cards — 2 column บนมือถือ */
     .stat-grid{grid-template-columns:repeat(2,1fr)!important}
 
-    /* Dashboard — 1 column บนมือถือ */
+    /* Dashboard — 1 column */
     .dashboard-grid{grid-template-columns:1fr!important}
 
-    /* Modal เต็มหน้าจอบนมือถือ */
-    .modal{max-width:100%!important;max-height:100vh!important;border-radius:12px 12px 0 0!important;margin-top:auto}
+    /* Modal bottom sheet */
+    .modal{max-width:100%!important;border-radius:16px 16px 0 0!important;margin:0}
     .modal-overlay{align-items:flex-end!important;padding:0!important}
 
-    /* Filter bar บนมือถือ wrap ได้ */
-    .filter-bar{gap:6px!important}
-    .filter-bar input{min-width:0;flex:1}
+    /* หน้าสต็อก — ซ่อนรหัส ให้ชื่อสินค้าแสดงเต็ม */
+    .stock-code-col{display:none!important}
 
-    /* ตาราง scroll ได้ */
+    /* รูปเล็กลงบนมือถือ */
+    .stock-thumb{width:28px!important;height:28px!important}
+    .stock-thumb-cell{width:32px!important;padding:4px 2px!important}
+
+    /* font เล็กลงนิด */
     table{font-size:12px}
+    .product-name{font-size:12px!important}
 
-    /* Lot dropdown */
-    datalist{display:block}
+    /* filter bar */
+    .filter-bar{gap:5px!important;padding:8px 10px!important}
+    .filter-bar select{font-size:12px!important;padding:6px 8px!important}
+    .filter-bar input{font-size:12px!important}
+
+    /* content padding น้อยลง */
+    #app > div > div:last-child > div:last-child{padding:8px!important}
   }
   .mobile-menu-btn{display:none;background:#f1f5f9;border:none;padding:8px;border-radius:6px;cursor:pointer;align-items:center;justify-content:center}
   .mobile-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:99}
@@ -108,6 +119,10 @@
   .product-cell{min-width:0;max-width:380px}
   .product-name{font-weight:500;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .product-meta{font-size:11px;color:#64748b;margin-top:2px;font-family:'Inter',monospace;font-weight:400}
+  .mobile-code{display:none} /* ซ่อนบน desktop */
+  @media(max-width:900px){
+    .mobile-code{display:block!important}
+  }
 
   .filter-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 16px;border-bottom:1px solid #e2e8f0;background:#fafbfc}
 
@@ -891,8 +906,8 @@ function StockList() {
       h('table',{},
         h('thead',{style:{position:'sticky',top:0,zIndex:5}},
           h('tr',{},
-            h('th',{style:{width:'140px'}},'รหัส'),
-            h('th',{style:{width:'48px'}},''),
+            h('th',{className:'stock-code-col',style:{width:'120px'}},'รหัส'),
+            h('th',{className:'stock-thumb-cell',style:{width:'36px'}},''),
             h('th',{},'สินค้า'),
             h('th',{className:'desktop-only'},'ประเภท'),
             h('th',{style:{textAlign:'right'}},'สต็อก'),
@@ -933,8 +948,8 @@ function renderStockTbody(tbody) {
     const thumbUrl = driveThumb(p.imageUrl, 48);
 
     // thumbnail cell
-    const thumbCell = h('td',{style:{width:'40px',padding:'6px 4px 6px 12px'}});
-    const thumbWrap = h('div',{style:{width:'36px',height:'36px',borderRadius:'6px',overflow:'hidden',border:'1px solid #e2e8f0',background:'#f8fafc',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}});
+    const thumbCell = h('td',{className:'stock-thumb-cell',style:{width:'36px',padding:'6px 2px 6px 8px'}});
+    const thumbWrap = h('div',{className:'stock-thumb',style:{width:'32px',height:'32px',borderRadius:'6px',overflow:'hidden',border:'1px solid #e2e8f0',background:'#f8fafc',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}});
     if (thumbUrl) {
       const img = document.createElement('img');
       img.src = thumbUrl;
@@ -949,10 +964,14 @@ function renderStockTbody(tbody) {
 
     tbody.appendChild(h('tr',{style:{cursor:'pointer'},
       onClick:()=>{ui.selectedId=p.id;ui.modal='detail';render();}},
-      h('td',{style:{fontFamily:'monospace',color:'#0f172a',fontSize:'13px',fontWeight:600,whiteSpace:'nowrap'}},p.code||p.id),
+      h('td',{className:'stock-code-col',style:{fontFamily:'monospace',color:'#0f172a',fontSize:'12px',fontWeight:600,whiteSpace:'nowrap'}},p.code||p.id),
       thumbCell,
       h('td',{className:'product-cell'},
-        h('div',{className:'product-name'},p.name),
+        h('div',{className:'product-name',style:{fontSize:'13px'}},
+          // แสดงรหัสก่อนชื่อบนมือถือ
+          h('span',{className:'mobile-code',style:{fontFamily:'monospace',fontSize:'10px',color:'#94a3b8',display:'block'}},p.code||p.id),
+          p.name
+        ),
         h('div',{className:'product-meta'},p.size||'')
       ),
       h('td',{className:'desktop-only',style:{fontSize:'12px',color:'#475569'}},p.type||'-'),
