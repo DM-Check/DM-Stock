@@ -1109,10 +1109,13 @@ function PickList(type) {
       h('table',{},
         h('thead',{style:{position:'sticky',top:0,zIndex:5}},
           h('tr',{},
-            h('th',{style:{width:'90px'}},'ทำล่าสุด'),
+            h('th',{className:'desktop-only',style:{width:'90px'}},'ทำล่าสุด'),
             h('th',{className:'desktop-only',style:{width:'120px'}},'รหัส'),
             h('th',{style:{width:'40px'}},''),
             h('th',{},'สินค้า'),
+            h('th',{style:{width:'100px'}},'Lot'),
+            h('th',{style:{textAlign:'right',width:'70px'}},'สต็อก'),
+            h('th',{style:{width:'60px'}},'สถานะ')
             h('th',{style:{width:'120px'}},'Lot'),
             h('th',{style:{textAlign:'right'}},'สต็อก'),
             h('th',{},'สถานะ')
@@ -1182,7 +1185,7 @@ function renderPickTbody(tbody, type) {
         ui.modal=type;
         render();
       }},
-      h('td',{style:{color:'#64748b',fontSize:'12px',whiteSpace:'nowrap'}},p.lastTxDate?fmtDate(p.lastTxDate):''),
+      h('td',{className:'desktop-only',style:{color:'#64748b',fontSize:'12px',whiteSpace:'nowrap'}},p.lastTxDate?fmtDate(p.lastTxDate):''),
       h('td',{className:'desktop-only',style:{fontFamily:'monospace',color:'#0f172a',fontSize:'13px',fontWeight:600,whiteSpace:'nowrap'}},p.code||p.id),
       h('td',{style:{width:'40px',padding:'4px 4px'}},thumbWrap),
       h('td',{className:'product-cell'},
@@ -1190,13 +1193,13 @@ function renderPickTbody(tbody, type) {
         h('div',{className:'mobile-code',style:{fontSize:'10px',color:'#94a3b8',fontFamily:'monospace'}},p.code||p.id),
         h('div',{className:'product-meta'},(p.type||'')+' · '+(p.size||''))
       ),
-      h('td',{style:{fontSize:'11px',color:'#64748b',maxWidth:'120px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},
-        productLots.length>0 ? h('span',{style:{fontFamily:'monospace',color:'#0f172a',fontWeight:500}},lotText) : h('span',{style:{color:'#cbd5e1'}},'-')
+      h('td',{style:{fontSize:'11px',color:'#64748b',maxWidth:'80px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},
+        productLots.length>0 ? h('span',{style:{fontFamily:'monospace',color:'#0f172a',fontWeight:500,fontSize:'11px'}},lotText) : h('span',{style:{color:'#cbd5e1'}},'-')
       ),
-      h('td',{style:{textAlign:'right'}},
-        h('span',{className:'stock-num',style:{fontSize:'14px',color:p.status==='out'?'#dc2626':p.status==='low'?'#d97706':'#0f172a'}},fmtNum(p.stock,2))
+      h('td',{style:{textAlign:'right',whiteSpace:'nowrap'}},
+        h('span',{className:'stock-num',style:{fontSize:'13px',color:p.status==='out'?'#dc2626':p.status==='low'?'#d97706':'#0f172a'}},fmtNum(p.stock,2))
       ),
-      h('td',{},badge(p.status))
+      h('td',{style:{whiteSpace:'nowrap'}},badge(p.status))
     );
     row.addEventListener('mouseenter',()=>row.style.background=hoverBg);
     row.addEventListener('mouseleave',()=>row.style.background='');
