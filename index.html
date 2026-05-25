@@ -216,7 +216,7 @@
 
 <script>
 // ===== CONFIG =====
-const API_URL = "https://script.google.com/macros/s/AKfycbzHO9GFJZZLUKk_AqxeVr6R1ZxSbDEf3WqS7E9hZoFv3O3PYeY_RpbIkhw6xHgdER1lCw/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyygNq2XHl-dwpSvsAGZAInzen6bPbZbLFbl3P7uPMptykoo6D5roHI-cNY1EkdPRCnew/exec";
 const SESSION_KEY = 'dm_session_v1';
 const SESSION_DAYS = 30;
 
@@ -2355,8 +2355,72 @@ function AddProductModal() {
   const errDiv = h('div',{style:{background:'#fee2e2',color:'#991b1b',borderRadius:'8px',padding:'9px 12px',fontSize:'13px',marginBottom:'12px',display:'none'}});
   modal.appendChild(errDiv);
 
-  // ฟิลด์ต่างๆ
-  const inpCode = h('input',{className:'input',placeholder:'เช่น DM-1508, DM-ATPLGM25'});
+  // ===== รหัสสินค้า N-S =====
+  // ดึงค่าที่ใช้บ่อยจากสินค้าเดิม
+  const usedP = Array.from(new Set(products.map(p=>p.partP).filter(Boolean))).sort();
+  const usedQ = Array.from(new Set(products.map(p=>p.partQ).filter(Boolean))).sort();
+  const usedR = Array.from(new Set(products.map(p=>p.partR).filter(Boolean))).sort();
+  const usedS = Array.from(new Set(products.map(p=>p.partS).filter(Boolean))).sort();
+
+  const inpP = h('input',{className:'input',placeholder:'วัสดุ เช่น CM, AT, WE',style:{textTransform:'uppercase'}});
+  const inpQ = h('input',{className:'input',placeholder:'ชื่อเรียก เช่น LF, SS, PL',style:{textTransform:'uppercase'}});
+  const inpR = h('input',{className:'input',placeholder:'ผิว เช่น G, M, N',style:{textTransform:'uppercase'}});
+  const inpS = h('input',{className:'input',placeholder:'ตัวท้าย เช่น 9, 25, A',style:{textTransform:'uppercase'}});
+
+  // เพิ่ม datalist suggestion
+  function makeSuggestion(id, values) {
+    const dl = h('datalist',{id});
+    values.forEach(v=>{ const o=document.createElement('option'); o.value=v; dl.appendChild(o); });
+    modal.appendChild(dl);
+    return dl;
+  }
+  makeSuggestion('sug-p', usedP);
+  makeSuggestion('sug-q', usedQ);
+  makeSuggestion('sug-r', usedR);
+  makeSuggestion('sug-s', usedS);
+  inpP.setAttribute('list','sug-p');
+  inpQ.setAttribute('list','sug-q');
+  inpR.setAttribute('list','sug-r');
+  inpS.setAttribute('list','sug-s');
+
+  // preview รหัสที่จะได้
+  const codePreview = h('div',{style:{
+    background:'#0f172a',color:'white',padding:'10px 14px',borderRadius:'8px',
+    fontFamily:'monospace',fontSize:'15px',fontWeight:700,letterSpacing:'.04em',
+    textAlign:'center',marginTop:'8px'
+  }},'DM-????');
+  const codeWarn = h('div',{style:{fontSize:'11px',marginTop:'4px',display:'none',fontWeight:500}});
+
+  function updateCode() {
+    const p=inpP.value.trim().toUpperCase();
+    const q=inpQ.value.trim().toUpperCase();
+    const r=inpR.value.trim().toUpperCase();
+    const s=inpS.value.trim().toUpperCase();
+    const code = 'DM-'+p+q+r+s;
+    if(p||q||r||s) {
+      codePreview.textContent = code;
+      codePreview.style.background = '#0f172a';
+    } else {
+      codePreview.textContent = 'DM-????';
+    }
+    if(p && q && r && s) {
+      const exists = products.find(x=>x.id===code||x.code===code);
+      if(exists){
+        codeWarn.innerHTML='⚠ รหัสนี้มีอยู่แล้ว: <b>'+exists.name+'</b>';
+        codeWarn.style.color='#dc2626';
+        codeWarn.style.display='block';
+        codePreview.style.background='#dc2626';
+      } else {
+        codeWarn.innerHTML='✓ รหัสนี้ยังไม่มีในระบบ';
+        codeWarn.style.color='#059669';
+        codeWarn.style.display='block';
+      }
+    } else {
+      codeWarn.style.display='none';
+    }
+  }
+  [inpP,inpQ,inpR,inpS].forEach(inp=>inp.addEventListener('input',updateCode));
+
   const inpName = h('input',{className:'input',placeholder:'เช่น 15 Long Finger: 2-Row Blue (Glossy)'});
   const inpType = h('input',{className:'input',placeholder:'เช่น Subway Tiles, Squares, Art Tiles',list:'type-list'});
 
@@ -2388,32 +2452,27 @@ function AddProductModal() {
   inpPcsPerBox.addEventListener('input',updatePreview);
   inpSqmPerPc.addEventListener('input',updatePreview);
 
-  // warning รหัสซ้ำ
-  const codeWarn = h('div',{style:{fontSize:'11px',marginTop:'4px',display:'none',fontWeight:500}});
-  inpCode.addEventListener('input',()=>{
-    const v = inpCode.value.trim();
-    if (!v) { codeWarn.style.display='none'; return; }
-    const exists = products.find(p=>p.id===v||p.code===v);
-    if (exists) {
-      codeWarn.innerHTML='⚠ รหัสนี้มีอยู่แล้ว: <b>'+exists.name+'</b>';
-      codeWarn.style.color='#dc2626';
-      codeWarn.style.display='block';
-    } else {
-      codeWarn.innerHTML='✓ รหัสนี้ยังไม่มีในระบบ';
-      codeWarn.style.color='#059669';
-      codeWarn.style.display='block';
-    }
-  });
-
   const form = h('div',{style:{display:'flex',flexDirection:'column',gap:'12px'}});
 
-  // Section: จำเป็น
-  form.appendChild(h('div',{style:{fontSize:'11px',fontWeight:700,color:'#64748b',textTransform:'uppercase',letterSpacing:'.04em',paddingBottom:'4px',borderBottom:'1px solid #f1f5f9'}},'ข้อมูลจำเป็น ★'));
+  // Section: รหัสสินค้า
+  form.appendChild(h('div',{style:{fontSize:'11px',fontWeight:700,color:'#64748b',textTransform:'uppercase',letterSpacing:'.04em',paddingBottom:'4px',borderBottom:'1px solid #f1f5f9'}},'🔑 รหัสสินค้า (DM- + P + Q + R + S)'));
 
-  form.appendChild(h('div',{},
-    h('label',{className:'field-label'},'รหัสสินค้า ★'),
-    inpCode, codeWarn
+  form.appendChild(h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}},
+    h('div',{},h('label',{className:'field-label'},'P — วัสดุ ★'),inpP),
+    h('div',{},h('label',{className:'field-label'},'Q — ชื่อเรียก ★'),inpQ)
   ));
+  form.appendChild(h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}},
+    h('div',{},h('label',{className:'field-label'},'R — ผิว ★'),inpR),
+    h('div',{},h('label',{className:'field-label'},'S — ตัวท้าย ★'),inpS)
+  ));
+  form.appendChild(h('div',{},
+    h('div',{style:{fontSize:'11px',color:'#94a3b8',marginBottom:'4px'}},'รหัสที่จะได้:'),
+    codePreview,
+    codeWarn
+  ));
+
+  // Section: จำเป็น
+  form.appendChild(h('div',{style:{fontSize:'11px',fontWeight:700,color:'#64748b',textTransform:'uppercase',letterSpacing:'.04em',paddingBottom:'4px',borderBottom:'1px solid #f1f5f9',marginTop:'4px'}},'ข้อมูลจำเป็น ★'));
   form.appendChild(h('div',{},h('label',{className:'field-label'},'ชื่อ/รายละเอียด ★'),inpName));
   form.appendChild(h('div',{},h('label',{className:'field-label'},'ประเภท ★'),inpType));
 
@@ -2458,14 +2517,14 @@ function AddProductModal() {
   const saveBtn = h('button',{className:'btn btn-primary',style:{flex:2,justifyContent:'center',padding:'10px',fontSize:'14px'}},'✓ เพิ่มสินค้าใหม่ → Sheet');
 
   saveBtn.addEventListener('click', async()=>{
-    const code = inpCode.value.trim();
+    const code = 'DM-'+inpP.value.trim().toUpperCase()+inpQ.value.trim().toUpperCase()+inpR.value.trim().toUpperCase()+inpS.value.trim().toUpperCase();
     const name = inpName.value.trim();
     const type = inpType.value.trim();
     const pcsPerBox = inpPcsPerBox.value.trim();
     const sqmPerPc = inpSqmPerPc.value.trim();
 
     // Validate
-    if (!code) { errDiv.textContent='กรุณากรอกรหัสสินค้า'; errDiv.style.display='block'; inpCode.focus(); return; }
+    if (!inpP.value.trim()||!inpQ.value.trim()||!inpR.value.trim()||!inpS.value.trim()) { errDiv.textContent='กรุณากรอก P, Q, R, S ให้ครบเพื่อสร้างรหัส'; errDiv.style.display='block'; return; }
     if (!name) { errDiv.textContent='กรุณากรอกชื่อสินค้า'; errDiv.style.display='block'; inpName.focus(); return; }
     if (!type) { errDiv.textContent='กรุณากรอกประเภท'; errDiv.style.display='block'; inpType.focus(); return; }
     if (!pcsPerBox||parseFloat(pcsPerBox)<=0) { errDiv.textContent='กรุณากรอกจำนวนแผ่น/กล่อง'; errDiv.style.display='block'; inpPcsPerBox.focus(); return; }
@@ -2489,6 +2548,10 @@ function AddProductModal() {
         chipSize: inpChipSize.value.trim(),
         minQty: inpMinQty.value.trim() || '5',
         refCode: inpRefCode.value.trim(),
+        partP: inpP.value.trim().toUpperCase(),
+        partQ: inpQ.value.trim().toUpperCase(),
+        partR: inpR.value.trim().toUpperCase(),
+        partS: inpS.value.trim().toUpperCase(),
         addedBy: currentUser ? currentUser.name : '',
       });
       const res = await fetch(url);
