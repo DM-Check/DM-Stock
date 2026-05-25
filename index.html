@@ -216,7 +216,7 @@
 
 <script>
 // ===== CONFIG =====
-const API_URL = "https://script.google.com/macros/s/AKfycbyygNq2XHl-dwpSvsAGZAInzen6bPbZbLFbl3P7uPMptykoo6D5roHI-cNY1EkdPRCnew/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzHCrfssPHnyrQmF9pBVIdW61lWZOlk1TJjWi1U_-ltB0A6EhN1AevjuwEWdtQhUqyZWg/exec";
 const SESSION_KEY = 'dm_session_v1';
 const SESSION_DAYS = 30;
 
@@ -688,7 +688,7 @@ function Sidebar() {
     {k:'customers',i:'👥',l:'ลูกค้า / Lot'},
     ...(canEdit()?[{k:'addproduct',i:'➕',l:'เพิ่มสินค้าใหม่'}]:[]),
     ...(isViewer?[]:isAdmin()?[{k:'alerts',i:'⚠',l:'แจ้งเตือน'}]:[]),
-    ...(isViewer?[]:[{k:'discontinued',i:'🚫',l:'สินค้าเลิกขาย', badge:getDiscontinued().length||null, badgeColor:'#64748b'}]),
+    ...(isViewer?[]:[{k:'discontinued',i:'🚫',l:'สินค้าเลิกขาย'}]),
     ...(isAdmin()?[{k:'admin',i:'⚙️',l:'จัดการผู้ใช้'}]:[]),
   ];
 
@@ -2645,15 +2645,27 @@ function DiscontinuedPage() {
           h('td',{className:'desktop-only',style:{fontSize:'12px',color:'#94a3b8'}},p.type||'-'),
           h('td',{style:{textAlign:'right',color:'#94a3b8',fontSize:'13px'}},fmtNum(parseFloat(p.stock)||0,2)),
           canEdit()?h('td',{},
-            h('button',{className:'btn btn-success',style:{fontSize:'12px',padding:'4px 10px'},
-              onClick:async()=>{
-                if(!confirm('คืนสถานะ "'+p.name+'" กลับมาขาย?')) return;
-                const url = API_URL+"?"+new URLSearchParams({action:'toggleProductStatus',targetId:p.id,newStatus:'OK'});
-                const res = await fetch(url);
-                const data = await res.json();
-                if(data.success){showToast('✓ คืนสถานะสำเร็จ');await fetchProducts();render();}
-                else showToast('❌ '+data.error,'err');
-              }},'✓ คืนสถานะ')
+            h('div',{style:{display:'flex',gap:'4px'}},
+              h('button',{className:'btn btn-success',style:{fontSize:'12px',padding:'4px 10px'},
+                onClick:async()=>{
+                  if(!confirm('คืนสถานะ "'+p.name+'" กลับมาขาย?')) return;
+                  const url = API_URL+"?"+new URLSearchParams({action:'toggleProductStatus',targetId:p.id,newStatus:'OK'});
+                  const res = await fetch(url);
+                  const data = await res.json();
+                  if(data.success){showToast('✓ คืนสถานะสำเร็จ');await fetchProducts();render();}
+                  else showToast('❌ '+data.error,'err');
+                }},'✓ คืนสถานะ'),
+              isAdmin()?h('button',{className:'btn btn-danger',style:{fontSize:'12px',padding:'4px 10px'},
+                onClick:async()=>{
+                  if(!confirm('⚠️ ลบ "'+p.name+'" ออกจากระบบถาวร?\nไม่สามารถกู้คืนได้')) return;
+                  if(!confirm('ยืนยันอีกครั้ง — ลบ "'+p.id+'" ถาวรเลยไหมครับ?')) return;
+                  const url = API_URL+"?"+new URLSearchParams({action:'deleteProduct',code:p.id});
+                  const res = await fetch(url);
+                  const data = await res.json();
+                  if(data.success){showToast('✓ ลบสินค้าออกจากระบบแล้ว');await fetchProducts();render();}
+                  else showToast('❌ '+data.error,'err');
+                }},'🗑 ลบถาวร'):null
+            )
           ):h('td',{})
         )))
       )
