@@ -880,7 +880,7 @@ function Dashboard() {
               h('th',{style:{textAlign:'right'}},'ตร.ม'),
               h('th',{className:'desktop-only'},'โดย')
             )),
-            h('tbody',{},...recent.slice(0,6).map(tx=>{
+            h('tbody',{},...recent.slice(0,10).map(tx=>{
               const p = products.find(x=>x.id===tx.productId||x.code===tx.productCode);
               return h('tr',{style:{cursor:'pointer'},
                 onClick:()=>{ if(p){ui.selectedId=p.id;ui.modal='detail';render();} }},
@@ -913,7 +913,7 @@ function Dashboard() {
           ),
           h('table',{},
             h('thead',{},h('tr',{},h('th',{style:{width:'130px'}},'รหัส'),h('th',{},'สินค้า'),h('th',{style:{textAlign:'right'}},'คงเหลือ'),h('th',{},'สถานะ'))),
-            h('tbody',{},...low.map(p=>h('tr',{style:{cursor:'pointer'},onClick:()=>{ui.selectedId=p.id;ui.modal='detail';render();}},
+            h('tbody',{},...low.slice(0,5).map(p=>h('tr',{style:{cursor:'pointer'},onClick:()=>{ui.selectedId=p.id;ui.modal='detail';render();}},
               h('td',{style:{color:'#0f172a',fontSize:'13px',fontFamily:'monospace',fontWeight:600,whiteSpace:'nowrap'}},p.code||p.id),
               h('td',{className:'product-cell'},h('div',{className:'product-name'},p.name)),
               h('td',{style:{textAlign:'right'}},h('span',{className:'stock-num',style:{color:p.status==='out'?'#dc2626':'#d97706'}},fmtNum(p.stock,2))),
