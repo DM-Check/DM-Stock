@@ -1752,7 +1752,12 @@ function DetailModal() {
           badge(status)
         ),
         h('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:'10px'}},
-          ...[['รหัสอ้างอิง',p.code||'-'],['ประเภท',p.type||'-'],['ขนาด (Sheet)',p.size||'-'],['Chip size',p.chipSize||'-'],['แผ่น/กล่อง',(p.pcsPerBox||'-')+' แผ่น'],['ตร.ม/แผ่น',(p.sqmPerPc||'-')+' ตร.ม'],['สต็อกขั้นต่ำ',(p.minQty||5)+' ตร.ม']]
+          ...[['รหัสอ้างอิง',p.code||'-'],['ประเภท',p.type||'-'],['ขนาด (Sheet)',p.size||'-'],['Chip size',p.chipSize||'-'],['แผ่น/กล่อง',(p.pcsPerBox||'-')+' แผ่น'],['ตร.ม/แผ่น',(p.sqmPerPc||'-')+' ตร.ม'],['สต็อกขั้นต่ำ',(p.minQty||5)+' ตร.ม'],
+            // ที่เก็บล่าสุดจากประวัติ
+            ['ที่เก็บล่าสุด',(()=>{
+              const txs = transactions.filter(t=>(t.productId===p.id||t.productCode===p.code)&&!t.cancelled&&t.location);
+              return txs.length>0 ? txs[0].location : '-';
+            })()]]
           .map(([k,v])=>h('div',{},
             h('div',{style:{color:'#94a3b8',fontSize:'10px',textTransform:'uppercase',letterSpacing:'.04em',fontWeight:600,marginBottom:'2px'}},k),
             h('div',{style:{fontWeight:500,fontSize:'13px'}},v)
@@ -2408,6 +2413,26 @@ function AddProductModal() {
     h('div',{},h('label',{className:'field-label'},'รหัสอ้างอิง'),inpRefCode)
   ));
 
+  // Section: สต็อกเริ่มต้น
+  const inpInitQty = h('input',{type:'number',className:'input',placeholder:'เช่น 50.5 (ถ้ามีของอยู่แล้ว)',min:'0',step:'0.001'});
+  const inpInitLot = h('input',{className:'input',placeholder:'เช่น Lot A, 2025-01 (ถ้าไม่ระบุจะใช้ "เดิม")'});
+  const inpInitLocation = h('input',{className:'input',placeholder:'เช่น P14, หน้าบ้าน'});
+
+  const initPreview = h('div',{style:{fontSize:'12px',color:'#64748b',background:'#f0fdf4',padding:'8px 12px',borderRadius:'6px',marginTop:'6px',display:'none'}});
+  inpInitQty.addEventListener('input',()=>{
+    const q = parseFloat(inpInitQty.value)||0;
+    if(q>0){initPreview.style.display='block';initPreview.textContent='จะบันทึกรับเข้า '+fmtNum(q,3)+' ตร.ม อัตโนมัติ';}
+    else initPreview.style.display='none';
+  });
+
+  form.appendChild(h('div',{style:{fontSize:'11px',fontWeight:700,color:'#059669',textTransform:'uppercase',letterSpacing:'.04em',paddingBottom:'4px',borderBottom:'1px solid #dcfce7',marginTop:'4px'}},'📦 สต็อกเริ่มต้น (ถ้ามีของอยู่แล้ว)'));
+  form.appendChild(h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}},
+    h('div',{},h('label',{className:'field-label'},'จำนวน (ตร.ม)'),inpInitQty),
+    h('div',{},h('label',{className:'field-label'},'Lot'),inpInitLot)
+  ));
+  form.appendChild(h('div',{},h('label',{className:'field-label'},'ที่เก็บ'),inpInitLocation));
+  form.appendChild(initPreview);
+
   const saveBtn = h('button',{className:'btn btn-primary',style:{flex:2,justifyContent:'center',padding:'10px',fontSize:'14px'}},'✓ เพิ่มสินค้าใหม่ → Sheet');
 
   saveBtn.addEventListener('click', async()=>{
@@ -2433,6 +2458,7 @@ function AddProductModal() {
     saveBtn.textContent='⏳ กำลังบันทึก...';
 
     try {
+      // 1. เพิ่มสินค้าใหม่
       const url = API_URL + "?" + new URLSearchParams({
         action: 'addProduct',
         code, name, type,
@@ -2447,9 +2473,32 @@ function AddProductModal() {
       const data = await res.json();
 
       if (data.success) {
+        // 2. ถ้ามีสต็อกเริ่มต้น → บันทึกรับเข้าอัตโนมัติ
+        const initQty = parseFloat(inpInitQty.value)||0;
+        if (initQty > 0) {
+          await fetchProducts(); // โหลดสินค้าใหม่ก่อน
+          const newProduct = products.find(p=>p.id===code||p.code===code);
+          if (newProduct) {
+            const initUrl = API_URL + "?" + new URLSearchParams({
+              action: 'addIn',
+              id: code, code: code, name: name,
+              sqm: initQty,
+              date: td(),
+              lot: inpInitLot.value.trim() || 'เดิม',
+              location: inpInitLocation.value.trim(),
+              pcsPerBox: pcsPerBox,
+              sqmPerPc: sqmPerPc,
+              note: 'สต็อกเริ่มต้น',
+              addedBy: currentUser ? currentUser.name : '',
+            });
+            await fetch(initUrl);
+          }
+        }
+
         isSaving=false; ui.modal=null;
-        showToast('✓ เพิ่มสินค้า "'+code+'" สำเร็จ 🎉');
-        await fetchProducts(); // sync ทันที
+        showToast('✓ เพิ่มสินค้า "'+code+'"'+(initQty>0?' พร้อมสต็อก '+fmtNum(initQty,2)+' ตร.ม':'')+' สำเร็จ 🎉');
+        await fetchProducts();
+        fetchLots();
         render();
       } else {
         errDiv.textContent = data.error || 'เกิดข้อผิดพลาด';
