@@ -216,7 +216,7 @@
 
 <script>
 // ===== CONFIG =====
-const API_URL = "https://script.google.com/macros/s/AKfycbzqwkDqlJqmf8mVRYLkNu3AjpLZxVtDXtFr53yVlroeM40uHg8-d7LaEvD9IjOE5meXww/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzHO9GFJZZLUKk_AqxeVr6R1ZxSbDEf3WqS7E9hZoFv3O3PYeY_RpbIkhw6xHgdER1lCw/exec";
 const SESSION_KEY = 'dm_session_v1';
 const SESSION_DAYS = 30;
 
@@ -1791,20 +1791,42 @@ function DetailModal() {
             h('span',{},'📦 Lot ของสินค้า ('+productLots.length+')'),
             h('span',{style:{color:'#0ea5e9',textTransform:'none',letterSpacing:'0'}},'รวม '+fmtNum(productLots.reduce((s,l)=>s+l.stock,0),3)+' ตร.ม')
           ),
-          h('div',{style:{maxHeight:'160px',overflowY:'auto',border:'1px solid #e2e8f0',borderRadius:'8px'}},
+          h('div',{style:{maxHeight:'200px',overflowY:'auto',border:'1px solid #e2e8f0',borderRadius:'8px'}},
             h('table',{style:{fontSize:'12px'}},
               h('thead',{style:{position:'sticky',top:0}},
                 h('tr',{style:{background:'#f8fafc'}},
                   h('th',{style:{padding:'6px 10px',textAlign:'left',fontWeight:600,color:'#64748b',fontSize:'10px',textTransform:'uppercase'}},'Lot'),
                   h('th',{style:{padding:'6px 10px',textAlign:'right',fontWeight:600,color:'#64748b',fontSize:'10px',textTransform:'uppercase'}},'คงเหลือ'),
-                  h('th',{style:{padding:'6px 10px',textAlign:'left',fontWeight:600,color:'#64748b',fontSize:'10px',textTransform:'uppercase'}},'ล่าสุด')
+                  h('th',{style:{padding:'6px 10px',textAlign:'left',fontWeight:600,color:'#64748b',fontSize:'10px',textTransform:'uppercase'}},'ที่เก็บ'),
+                  h('th',{style:{padding:'6px 10px',textAlign:'left',fontWeight:600,color:'#64748b',fontSize:'10px',textTransform:'uppercase'}},'ล่าสุด'),
+                  canEdit()?h('th',{style:{padding:'6px 10px',width:'60px'}},''):null
                 )
               ),
-              h('tbody',{},...productLots.sort((a,b)=>b.stock-a.stock).map(l=>h('tr',{},
-                h('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f1f5f9',fontWeight:600,fontFamily:'monospace'}},l.lot),
-                h('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f1f5f9',textAlign:'right',fontWeight:700,fontVariantNumeric:'tabular-nums'}},fmtNum(l.stock,3)),
-                h('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f1f5f9',color:'#64748b',whiteSpace:'nowrap'}},fmtDate(l.lastDate))
-              )))
+              h('tbody',{},...productLots.sort((a,b)=>b.stock-a.stock).map(l=>{
+                const locSpan = h('span',{style:{color:l.location?'#0f172a':'#cbd5e1'}},l.location||'-');
+                return h('tr',{},
+                  h('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f1f5f9',fontWeight:600,fontFamily:'monospace'}},l.lot),
+                  h('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f1f5f9',textAlign:'right',fontWeight:700,fontVariantNumeric:'tabular-nums'}},fmtNum(l.stock,3)),
+                  h('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f1f5f9'}},locSpan),
+                  h('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f1f5f9',color:'#64748b',whiteSpace:'nowrap'}},fmtDate(l.lastDate)),
+                  canEdit()?h('td',{style:{padding:'4px 6px',borderBottom:'1px solid #f1f5f9'}},
+                    h('button',{className:'btn btn-ghost',style:{fontSize:'10px',padding:'2px 7px'},
+                      onClick:()=>{
+                        const newLoc = prompt('ที่เก็บใหม่สำหรับ Lot '+l.lot+':', l.location||'');
+                        if(newLoc===null) return; // กด cancel
+                        const url = API_URL+'?'+new URLSearchParams({action:'updateLotLocation',productId:l.productId,lot:l.lot,location:newLoc.trim()});
+                        fetch(url).then(r=>r.json()).then(d=>{
+                          if(d.success){
+                            l.location=newLoc.trim();
+                            locSpan.textContent=newLoc.trim()||'-';
+                            locSpan.style.color=newLoc.trim()?'#0f172a':'#cbd5e1';
+                            showToast('✓ อัปเดตที่เก็บ Lot '+l.lot+' แล้ว');
+                          } else showToast('❌ '+d.error,'err');
+                        });
+                      }},'✏️')
+                  ):null
+                );
+              }))
             )
           )
         );
