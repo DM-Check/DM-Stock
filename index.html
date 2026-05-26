@@ -2650,23 +2650,6 @@ function ReservationsPage() {
           )
         ),
         h('div',{style:{display:'flex',gap:'8px'}},
-          done.filter(r=>r.status==='ยกเลิก').length>0 && isAdmin() ? h('button',{
-            className:'btn btn-danger',style:{fontSize:'12px'},
-            onClick:async()=>{
-              const cancelled = done.filter(r=>r.status==='ยกเลิก');
-              if(!confirm('ลบประวัติที่ยกเลิกแล้ว '+cancelled.length+' รายการ ถาวรเลยไหมครับ?')) return;
-              // ลบทีละตัว
-              let deleted=0;
-              for(const r of cancelled){
-                const res = await fetch(API_URL+'?'+new URLSearchParams({action:'deleteReservation',resId:r.id}));
-                const d = await res.json();
-                if(d.success) deleted++;
-              }
-              showToast('✓ ลบ '+deleted+' รายการแล้ว');
-              await fetchReservations();
-              render();
-            }
-          },'🗑 ลบที่ยกเลิก ('+done.filter(r=>r.status==='ยกเลิก').length+')') : null,
           h('button',{className:'btn btn-primary',style:{fontSize:'12px'},
             onClick:()=>{ui.modal='addReservation';render();}},'+ จองสินค้า')
         )
@@ -2742,7 +2725,8 @@ function ReservationsPage() {
             h('th',{style:{textAlign:'right'}},'จำนวน'),
             h('th',{},'ลูกค้า'),
             h('th',{},'สถานะ'),
-            h('th',{className:'desktop-only'},'วันจอง')
+            h('th',{className:'desktop-only'},'วันจอง'),
+            h('th',{style:{width:'40px'}},'')
           )),
           h('tbody',{},...done.slice(0,50).map(r=>{
             const p = products.find(x=>x.id===r.productId||x.code===r.productId);
@@ -2755,7 +2739,17 @@ function ReservationsPage() {
                 background:r.status==='จ่ายแล้ว'?'#dcfce7':'#f1f5f9',
                 color:r.status==='จ่ายแล้ว'?'#166534':'#64748b'
               }},r.status)),
-              h('td',{className:'desktop-only',style:{fontSize:'12px',color:'#64748b'}},fmtDate(r.date))
+              h('td',{className:'desktop-only',style:{fontSize:'12px',color:'#64748b'}},fmtDate(r.date)),
+              isAdmin()&&r.status==='ยกเลิก'?h('td',{},
+                h('button',{className:'btn btn-danger',style:{fontSize:'10px',padding:'2px 7px'},
+                  onClick:async()=>{
+                    if(!confirm('ลบ "'+r.id+'" ถาวรเลยไหมครับ?')) return;
+                    const res = await fetch(API_URL+'?'+new URLSearchParams({action:'deleteReservation',resId:r.id}));
+                    const d = await res.json();
+                    if(d.success){showToast('✓ ลบแล้ว');await fetchReservations();render();}
+                    else showToast('❌ '+d.error,'err');
+                  }},'🗑')
+              ):h('td',{})
             );
           }))
         )
