@@ -216,7 +216,7 @@
 
 <script>
 // ===== CONFIG =====
-const API_URL = "https://script.google.com/macros/s/AKfycbzHCrfssPHnyrQmF9pBVIdW61lWZOlk1TJjWi1U_-ltB0A6EhN1AevjuwEWdtQhUqyZWg/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxzzS7QrYoyR8a3x249H0h9nLkS2lMl0DjmnEg_-Mdi_9q9iI-UskPuyjOcruWUdYR0Sw/exec";
 const SESSION_KEY = 'dm_session_v1';
 const SESSION_DAYS = 30;
 
@@ -354,6 +354,7 @@ let products = [];
 let transactions = [];
 let lots = [];
 let projects = [];
+let reservations = []; // การจอง
 let lastSync = null;
 let isLoading = false;
 let isLoadingTx = false;
@@ -444,6 +445,14 @@ async function fetchLots() {
   } catch(e) { console.error('Load lots failed:', e); }
 }
 
+async function fetchReservations() {
+  try {
+    const res = await fetch(API_URL + "?action=getReservations");
+    const data = await res.json();
+    if (data.success) reservations = data.reservations || [];
+  } catch(e) { console.error('Load reservations failed:', e); }
+}
+
 async function fetchProjects() {
   try {
     const res = await fetch(API_URL + "?action=getProjects");
@@ -469,6 +478,19 @@ async function apiSaveTx(type, p, sqm) {
   const res = await fetch(url);
   const data = await res.json();
   if (!data.success) throw new Error(data.error || 'บันทึกไม่สำเร็จ');
+}
+
+function getReservedQty(productId, lot='') {
+  return reservations
+    .filter(r => r.productId===productId && r.status==='จอง' && (lot===''||r.lot===lot))
+    .reduce((s,r) => s+r.sqm, 0);
+}
+
+function getAvailableQty(productId, lot='') {
+  const lotStock = lots
+    .filter(l => String(l.productId).trim()===String(productId).trim() && l.stock>0 && (lot===''||l.lot===lot))
+    .reduce((s,l) => s+l.stock, 0);
+  return Math.max(0, lotStock - getReservedQty(productId, lot));
 }
 
 function getLotsForProduct(productId) {
@@ -686,6 +708,7 @@ function Sidebar() {
     {k:'stock',i:'📦',l:'สต็อกสินค้า', badge:stats.total},
     {k:'history',i:'🕐',l:'ประวัติ', badge:unreadCount||null, badgeColor:'#ef4444'},
     {k:'customers',i:'👥',l:'ลูกค้า / Lot'},
+    ...(canEdit()?[{k:'reservations',i:'🔖',l:'การจอง', badge:reservations.filter(r=>r.status==='จอง').length||null, badgeColor:'#f59e0b'}]:[]),
     ...(canEdit()?[{k:'addproduct',i:'➕',l:'เพิ่มสินค้าใหม่'}]:[]),
     ...(isViewer?[]:isAdmin()?[{k:'alerts',i:'⚠',l:'แจ้งเตือน'}]:[]),
     ...(isViewer?[]:[{k:'discontinued',i:'🚫',l:'สินค้าเลิกขาย'}]),
@@ -797,7 +820,7 @@ function exportCSV(type) {
 }
 
 function Topbar() {
-  const titles={dashboard:'Dashboard',stock:'สต็อกสินค้า',in:'รับสินค้าเข้า',out:'จ่ายสินค้าออก',history:'ประวัติการเคลื่อนไหว',customers:'ลูกค้า / Lot / สินค้า',alerts:'แจ้งเตือนสินค้า',admin:'จัดการผู้ใช้',addproduct:'เพิ่มสินค้าใหม่',discontinued:'สินค้าเลิกขาย'};
+  const titles={dashboard:'Dashboard',stock:'สต็อกสินค้า',in:'รับสินค้าเข้า',out:'จ่ายสินค้าออก',history:'ประวัติการเคลื่อนไหว',customers:'ลูกค้า / Lot / สินค้า',alerts:'แจ้งเตือนสินค้า',admin:'จัดการผู้ใช้',addproduct:'เพิ่มสินค้าใหม่',discontinued:'สินค้าเลิกขาย',reservations:'การจอง'};
   return h('div',{className:'topbar'},
     h('div',{style:{display:'flex',alignItems:'center',gap:'12px'}},
       h('button',{className:'mobile-menu-btn',onClick:()=>{mobileMenuOpen=!mobileMenuOpen;render();}},'☰'),
@@ -1767,8 +1790,8 @@ function DetailModal() {
       h('div',{style:{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'8px',marginBottom:'14px'}},
         ...[
           ['คงเหลือ (ตร.ม)',fmtNum(stock,3),status==='out'?'#dc2626':status==='low'?'#d97706':'#059669'],
-          ['ประมาณ',boxes+' กล่อง','#0ea5e9'],
-          ['ต่อ 1 แผ่น',fmtNum(p.sqmPerPc||0,4),'#64748b']
+          ['จองแล้ว',fmtNum(getReservedQty(p.id),2),'#d97706'],
+          ['ว่างจริง',fmtNum(getAvailableQty(p.id),2),'#2563eb']
         ].map(([l,v,c])=>h('div',{style:{background:'white',border:'1px solid #e2e8f0',borderRadius:'8px',padding:'10px',textAlign:'center'}},
           h('div',{style:{fontWeight:700,fontSize:'17px',color:c,fontVariantNumeric:'tabular-nums'}},v),
           h('div',{style:{fontSize:'10px',color:'#94a3b8',marginTop:'3px',textTransform:'uppercase',letterSpacing:'.04em',fontWeight:600}},l)
@@ -1911,7 +1934,7 @@ function LoginPage() {
       saveSession(currentUser);
       showToast('ยินดีต้อนรับ '+currentUser.name+' 👋');
       await fetchProducts();
-      fetchTransactions(); fetchLots(); fetchProjects();
+      fetchTransactions(); fetchLots(); fetchProjects(); fetchReservations();
       fetchLastRead(); // โหลด lastRead หลัง login
       render();
     } else {
@@ -2610,6 +2633,286 @@ function AddProductModal() {
 }
 
 // ===== DISCONTINUED PAGE =====
+// ===== RESERVATIONS PAGE =====
+function ReservationsPage() {
+  const active = reservations.filter(r=>r.status==='จอง');
+  const done = reservations.filter(r=>r.status!=='จอง');
+
+  return h('div',{style:{display:'flex',flexDirection:'column',gap:'14px'}},
+    // Header
+    h('div',{className:'card',style:{padding:'14px 16px',background:'#0f172a'}},
+      h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between'}},
+        h('div',{style:{display:'flex',alignItems:'center',gap:'10px'}},
+          h('span',{style:{fontSize:'20px'}},'🔖'),
+          h('div',{},
+            h('div',{style:{color:'white',fontWeight:700,fontSize:'15px'}},'การจองสินค้า'),
+            h('div',{style:{color:'#94a3b8',fontSize:'12px'}},'จองอยู่ '+active.length+' รายการ')
+          )
+        ),
+        h('button',{className:'btn btn-primary',style:{fontSize:'12px'},
+          onClick:()=>{ui.modal='addReservation';render();}},'+ จองสินค้า')
+      )
+    ),
+
+    // รายการจองอยู่
+    active.length > 0 ? h('div',{className:'card'},
+      h('div',{style:{padding:'12px 16px',borderBottom:'1px solid #e2e8f0',fontWeight:700,fontSize:'13px',color:'#f59e0b'}},'🔖 จองอยู่ ('+active.length+')'),
+      h('div',{style:{overflowX:'auto'}},
+        h('table',{},
+          h('thead',{},h('tr',{},
+            h('th',{},'เลขจอง'),
+            h('th',{},'สินค้า'),
+            h('th',{},'Lot'),
+            h('th',{style:{textAlign:'right'}},'จำนวน'),
+            h('th',{},'ลูกค้า'),
+            h('th',{className:'desktop-only'},'วันจอง'),
+            h('th',{className:'desktop-only'},'บันทึกโดย'),
+            h('th',{style:{width:'160px'}},'')
+          )),
+          h('tbody',{},...active.map(r=>{
+            const p = products.find(x=>x.id===r.productId||x.code===r.productId);
+            return h('tr',{},
+              h('td',{style:{fontFamily:'monospace',fontWeight:600,fontSize:'12px',color:'#f59e0b'}},r.id),
+              h('td',{className:'product-cell'},
+                h('div',{className:'product-name',style:{fontSize:'12px'}},p?p.name:r.productName),
+                h('div',{className:'product-meta'},r.productId)
+              ),
+              h('td',{style:{fontFamily:'monospace',fontSize:'12px',color:r.lot?'#0f172a':'#cbd5e1'}},r.lot||'-'),
+              h('td',{style:{textAlign:'right',fontWeight:700,color:'#f59e0b'}},fmtNum(r.sqm,3)),
+              h('td',{style:{fontWeight:500}},r.customer),
+              h('td',{className:'desktop-only',style:{fontSize:'12px',color:'#64748b'}},fmtDate(r.date)),
+              h('td',{className:'desktop-only',style:{fontSize:'12px',color:'#64748b'}},r.addedBy||'-'),
+              h('td',{},
+                h('div',{style:{display:'flex',gap:'4px'}},
+                  h('button',{className:'btn btn-success',style:{fontSize:'11px',padding:'3px 8px'},
+                    onClick:async()=>{
+                      if(!confirm('จ่ายสินค้าตามจอง "'+r.id+'" แล้ว?')) return;
+                      const res = await fetch(API_URL+'?'+new URLSearchParams({action:'completeReservation',resId:r.id}));
+                      const data = await res.json();
+                      if(data.success){showToast('✓ บันทึกจ่ายแล้ว');await fetchReservations();render();}
+                      else showToast('❌ '+data.error,'err');
+                    }},'✓ จ่ายแล้ว'),
+                  h('button',{className:'btn btn-outline',style:{fontSize:'11px',padding:'3px 8px'},
+                    onClick:async()=>{
+                      if(!confirm('ยกเลิกการจอง "'+r.id+'"?')) return;
+                      const res = await fetch(API_URL+'?'+new URLSearchParams({action:'cancelReservation',resId:r.id}));
+                      const data = await res.json();
+                      if(data.success){showToast('✓ ยกเลิกการจองแล้ว');await fetchReservations();render();}
+                      else showToast('❌ '+data.error,'err');
+                    }},'ยกเลิก')
+                )
+              )
+            );
+          }))
+        )
+      )
+    ) : h('div',{className:'card empty-state'},
+      h('div',{className:'empty-icon'},'🔖'),
+      h('div',{style:{fontWeight:600}},'ไม่มีการจอง'),
+      h('div',{style:{fontSize:'12px',color:'#94a3b8',marginTop:'4px'}},'กดปุ่ม + จองสินค้า เพื่อเพิ่มการจอง')
+    ),
+
+    // ประวัติการจอง
+    done.length > 0 ? h('div',{className:'card'},
+      h('div',{style:{padding:'12px 16px',borderBottom:'1px solid #e2e8f0',fontWeight:700,fontSize:'13px',color:'#64748b'}},'📋 ประวัติการจอง ('+done.length+')'),
+      h('div',{style:{overflowX:'auto',maxHeight:'300px',overflowY:'auto'}},
+        h('table',{},
+          h('thead',{},h('tr',{},
+            h('th',{},'เลขจอง'),
+            h('th',{},'สินค้า'),
+            h('th',{style:{textAlign:'right'}},'จำนวน'),
+            h('th',{},'ลูกค้า'),
+            h('th',{},'สถานะ'),
+            h('th',{className:'desktop-only'},'วันจอง')
+          )),
+          h('tbody',{},...done.slice(0,50).map(r=>{
+            const p = products.find(x=>x.id===r.productId||x.code===r.productId);
+            return h('tr',{style:{opacity:.6}},
+              h('td',{style:{fontFamily:'monospace',fontSize:'12px'}},r.id),
+              h('td',{className:'product-cell'},h('div',{className:'product-name',style:{fontSize:'12px'}},p?p.name:r.productName)),
+              h('td',{style:{textAlign:'right',fontSize:'12px'}},fmtNum(r.sqm,3)),
+              h('td',{style:{fontSize:'12px'}},r.customer),
+              h('td',{},h('span',{className:'badge',style:{
+                background:r.status==='จ่ายแล้ว'?'#dcfce7':'#f1f5f9',
+                color:r.status==='จ่ายแล้ว'?'#166534':'#64748b'
+              }},r.status)),
+              h('td',{className:'desktop-only',style:{fontSize:'12px',color:'#64748b'}},fmtDate(r.date))
+            );
+          }))
+        )
+      )
+    ) : null
+  );
+}
+
+// ===== ADD RESERVATION MODAL =====
+function AddReservationModal() {
+  const overlay = h('div',{className:'modal-overlay',onClick:e=>{if(e.target===overlay){ui.modal=null;render();}}});
+  const modal = h('div',{className:'modal',style:{padding:'24px',maxWidth:'480px'}});
+
+  modal.appendChild(h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'18px'}},
+    h('div',{style:{fontWeight:700,fontSize:'16px'}},'🔖 จองสินค้า'),
+    h('button',{className:'btn btn-ghost',style:{padding:'5px 9px'},onClick:()=>{ui.modal=null;render();}},'✕')
+  ));
+
+  // ค้นหาสินค้า
+  const searchInp = h('input',{className:'input',placeholder:'ค้นหาชื่อหรือรหัสสินค้า...',style:{marginBottom:'8px'}});
+  const productList = h('div',{style:{maxHeight:'200px',overflowY:'auto',border:'1px solid #e2e8f0',borderRadius:'8px',marginBottom:'12px'}});
+  let selectedProduct = null;
+  const selectedDiv = h('div',{style:{display:'none',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:'8px',padding:'10px 12px',marginBottom:'12px'}});
+
+  function renderProductList(q='') {
+    productList.innerHTML='';
+    const filtered = products.filter(p=>p.stock>0&&!p.discontinued&&
+      (p.name.toLowerCase().includes(q.toLowerCase())||
+       (p.code||'').toLowerCase().includes(q.toLowerCase())||
+       (p.id||'').toLowerCase().includes(q.toLowerCase()))
+    ).slice(0,20);
+    if(filtered.length===0){
+      productList.appendChild(h('div',{style:{padding:'12px',textAlign:'center',color:'#94a3b8',fontSize:'12px'}},'ไม่พบสินค้า'));
+      return;
+    }
+    filtered.forEach(p=>{
+      const reserved = getReservedQty(p.id);
+      const available = Math.max(0, p.stock - reserved);
+      const item = h('div',{style:{padding:'10px 12px',cursor:'pointer',borderBottom:'1px solid #f1f5f9',display:'flex',justifyContent:'space-between',alignItems:'center'}},
+        h('div',{},
+          h('div',{style:{fontWeight:500,fontSize:'13px'}},p.name),
+          h('div',{style:{fontSize:'11px',color:'#64748b',fontFamily:'monospace'}},p.id)
+        ),
+        h('div',{style:{textAlign:'right'}},
+          h('div',{style:{fontSize:'12px',fontWeight:700,color:available>0?'#059669':'#dc2626'}},fmtNum(available,2)+' ตร.ม'),
+          reserved>0?h('div',{style:{fontSize:'10px',color:'#f59e0b'}},'จอง '+fmtNum(reserved,2)):null
+        )
+      );
+      item.addEventListener('mouseenter',()=>item.style.background='#f8fafc');
+      item.addEventListener('mouseleave',()=>item.style.background='');
+      item.addEventListener('click',()=>{
+        selectedProduct=p;
+        productList.style.display='none';
+        searchInp.style.display='none';
+        selectedDiv.style.display='block';
+        const reserved2 = getReservedQty(p.id);
+        const available2 = Math.max(0,p.stock-reserved2);
+        selectedDiv.innerHTML='';
+        selectedDiv.appendChild(h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center'}},
+          h('div',{},
+            h('div',{style:{fontWeight:600,fontSize:'13px'}},p.name),
+            h('div',{style:{fontSize:'11px',color:'#64748b',fontFamily:'monospace'}},p.id)
+          ),
+          h('div',{style:{textAlign:'right'}},
+            h('div',{style:{fontSize:'12px',fontWeight:700,color:'#059669'}},'ว่าง '+fmtNum(available2,2)+' ตร.ม'),
+            reserved2>0?h('div',{style:{fontSize:'10px',color:'#f59e0b'}},'จอง '+fmtNum(reserved2,2)+' ตร.ม'):null
+          )
+        ));
+        selectedDiv.appendChild(h('button',{className:'btn btn-ghost',style:{fontSize:'11px',marginTop:'6px',padding:'2px 8px'},
+          onClick:()=>{
+            selectedProduct=null;
+            productList.style.display='block';
+            searchInp.style.display='block';
+            selectedDiv.style.display='none';
+            searchInp.value='';
+            renderProductList('');
+          }},'เปลี่ยนสินค้า'));
+        // อัปเดต lot dropdown
+        updateLotOptions(p.id);
+      });
+      productList.appendChild(item);
+    });
+  }
+  searchInp.addEventListener('input',()=>renderProductList(searchInp.value));
+  renderProductList('');
+
+  // Lot selector
+  const inpLot = h('select',{className:'input'});
+  function updateLotOptions(productId) {
+    inpLot.innerHTML='<option value="">-- ทุก Lot --</option>';
+    const productLots = lots.filter(l=>String(l.productId).trim()===String(productId).trim()&&l.stock>0);
+    productLots.forEach(l=>{
+      const reserved = getReservedQty(productId, l.lot);
+      const available = Math.max(0,l.stock-reserved);
+      const opt = document.createElement('option');
+      opt.value = l.lot;
+      opt.textContent = l.lot+' (ว่าง '+fmtNum(available,2)+' ตร.ม)';
+      inpLot.appendChild(opt);
+    });
+  }
+
+  const inpSqm = h('input',{type:'number',className:'input',placeholder:'เช่น 50.5',min:'0.001',step:'0.001'});
+  const inpCustomer = h('input',{className:'input',placeholder:'ชื่อลูกค้าหรือโปรเจค',list:'res-cust-list'});
+  const custList = h('datalist',{id:'res-cust-list'});
+  projects.forEach(c=>{const o=document.createElement('option');o.value=c;custList.appendChild(o);});
+  modal.appendChild(custList);
+
+  const availPreview = h('div',{style:{fontSize:'12px',color:'#64748b',marginTop:'4px',display:'none'}});
+  inpSqm.addEventListener('input',()=>{
+    if(!selectedProduct) return;
+    const lot = inpLot.value;
+    const available = getAvailableQty(selectedProduct.id, lot);
+    const q = parseFloat(inpSqm.value)||0;
+    if(q>0){
+      availPreview.style.display='block';
+      if(q>available){
+        availPreview.textContent='⚠ จำนวนเกินที่ว่าง (ว่างจริง '+fmtNum(available,3)+' ตร.ม)';
+        availPreview.style.color='#dc2626';
+      } else {
+        availPreview.textContent='✓ จองได้ (ว่างหลังจอง '+fmtNum(available-q,3)+' ตร.ม)';
+        availPreview.style.color='#059669';
+      }
+    } else availPreview.style.display='none';
+  });
+
+  const errDiv = h('div',{style:{background:'#fee2e2',color:'#991b1b',borderRadius:'8px',padding:'8px 12px',fontSize:'12px',marginBottom:'8px',display:'none'}});
+  const saveBtn = h('button',{className:'btn btn-primary',style:{flex:1,justifyContent:'center',padding:'10px'}},'✓ ยืนยันการจอง');
+
+  saveBtn.addEventListener('click',async()=>{
+    if(!selectedProduct){errDiv.textContent='กรุณาเลือกสินค้า';errDiv.style.display='block';return;}
+    const sqm = parseFloat(inpSqm.value)||0;
+    const customer = inpCustomer.value.trim();
+    if(sqm<=0){errDiv.textContent='กรุณากรอกจำนวน';errDiv.style.display='block';return;}
+    if(!customer){errDiv.textContent='กรุณากรอกชื่อลูกค้า';errDiv.style.display='block';return;}
+    errDiv.style.display='none';
+    saveBtn.disabled=true; saveBtn.textContent='⏳ กำลังจอง...';
+    const url = API_URL+'?'+new URLSearchParams({
+      action:'addReservation',
+      productId:selectedProduct.id,
+      productName:selectedProduct.name,
+      lot:inpLot.value,
+      sqm, customer,
+      addedBy:currentUser?currentUser.name:''
+    });
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data.success){
+      showToast('✓ จองสำเร็จ เลขจอง: '+data.id);
+      await fetchReservations();
+      ui.modal=null;
+      render();
+    } else {
+      errDiv.textContent='❌ '+data.error;
+      errDiv.style.display='block';
+      saveBtn.disabled=false;
+      saveBtn.textContent='✓ ยืนยันการจอง';
+    }
+  });
+
+  modal.appendChild(searchInp);
+  modal.appendChild(productList);
+  modal.appendChild(selectedDiv);
+  modal.appendChild(h('div',{style:{display:'flex',flexDirection:'column',gap:'10px'}},
+    h('div',{},h('label',{className:'field-label'},'Lot'),inpLot),
+    h('div',{},h('label',{className:'field-label'},'จำนวน (ตร.ม) ★'),inpSqm,availPreview),
+    h('div',{},h('label',{className:'field-label'},'ลูกค้า / โปรเจค ★'),inpCustomer)
+  ));
+  modal.appendChild(errDiv);
+  modal.appendChild(h('div',{style:{display:'flex',gap:'8px',marginTop:'12px'}},
+    h('button',{className:'btn btn-outline',style:{flex:1,justifyContent:'center',padding:'10px'},onClick:()=>{ui.modal=null;render();}},'ยกเลิก'),
+    saveBtn
+  ));
+  overlay.appendChild(modal);
+  return overlay;
+}
+
 function DiscontinuedPage() {
   const list = getDiscontinued();
 
@@ -3500,6 +3803,7 @@ function render() {
   else if(ui.view==='customers') content.appendChild(Customers());
   else if(ui.view==='alerts') content.appendChild(Alerts());
   else if(ui.view==='discontinued') content.appendChild(DiscontinuedPage());
+  else if(ui.view==='reservations') content.appendChild(ReservationsPage());
   else if(ui.view==='admin') content.appendChild(AdminPage());
   else if(ui.view==='addproduct') { ui.modal='addProduct'; ui.view='stock'; content.appendChild(StockList()); }
 
@@ -3579,6 +3883,7 @@ function render() {
   }
 
   if(ui.modal==='in'||ui.modal==='out'){const m=TxModal(ui.modal);if(m)app.appendChild(m);}
+  if(ui.modal==='addReservation'){const m=AddReservationModal();if(m)app.appendChild(m);}
   else if(ui.modal==='detail'){const m=DetailModal();if(m)app.appendChild(m);}
   else if(ui.modal==='uploadImage'){const m=UploadImageModal();if(m)app.appendChild(m);}
   else if(ui.modal==='editProduct'){const m=EditProductModal();if(m)app.appendChild(m);}
@@ -3610,8 +3915,7 @@ fetchUserNames().then(() => {
 // ถ้าล็อกอินอยู่แล้ว โหลดข้อมูลเลย
 if (currentUser) {
   fetchProducts().then(() => fetchTransactions());
-  fetchLots();
-  fetchProjects();
+  fetchLots(); fetchProjects(); fetchReservations();
   fetchLastRead();
 }
 </script>
