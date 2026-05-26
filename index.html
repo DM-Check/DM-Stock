@@ -216,7 +216,7 @@
 
 <script>
 // ===== CONFIG =====
-const API_URL = "https://script.google.com/macros/s/AKfycbzjB3xIxTYPurx8luAIMPsEFMvU9OmpYRqTneTiAvkbDTr4gMrohGIvOcbPUf9xb7f7FA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxzgSFKcNg5wNty76uS8nrQaDNC-QnOYbquEfA6Yw03PdckOCjiQneYRV-GtZH6QHu5Dg/exec";
 const SESSION_KEY = 'dm_session_v1';
 const SESSION_DAYS = 30;
 
@@ -2649,8 +2649,27 @@ function ReservationsPage() {
             h('div',{style:{color:'#94a3b8',fontSize:'12px'}},'จองอยู่ '+active.length+' รายการ')
           )
         ),
-        h('button',{className:'btn btn-primary',style:{fontSize:'12px'},
-          onClick:()=>{ui.modal='addReservation';render();}},'+ จองสินค้า')
+        h('div',{style:{display:'flex',gap:'8px'}},
+          done.filter(r=>r.status==='ยกเลิก').length>0 && isAdmin() ? h('button',{
+            className:'btn btn-danger',style:{fontSize:'12px'},
+            onClick:async()=>{
+              const cancelled = done.filter(r=>r.status==='ยกเลิก');
+              if(!confirm('ลบประวัติที่ยกเลิกแล้ว '+cancelled.length+' รายการ ถาวรเลยไหมครับ?')) return;
+              // ลบทีละตัว
+              let deleted=0;
+              for(const r of cancelled){
+                const res = await fetch(API_URL+'?'+new URLSearchParams({action:'deleteReservation',resId:r.id}));
+                const d = await res.json();
+                if(d.success) deleted++;
+              }
+              showToast('✓ ลบ '+deleted+' รายการแล้ว');
+              await fetchReservations();
+              render();
+            }
+          },'🗑 ลบที่ยกเลิก ('+done.filter(r=>r.status==='ยกเลิก').length+')') : null,
+          h('button',{className:'btn btn-primary',style:{fontSize:'12px'},
+            onClick:()=>{ui.modal='addReservation';render();}},'+ จองสินค้า')
+        )
       )
     ),
 
@@ -2818,6 +2837,7 @@ function AddReservationModal() {
         updateLotOptions(p.id);
         // build unit buttons
         buildUnitBtns(p);
+        unitBtns.style.display='flex';
       });
       productList.appendChild(item);
     });
@@ -2842,7 +2862,7 @@ function AddReservationModal() {
 
   const inpSqm = h('input',{type:'number',className:'input',placeholder:'เช่น 50.5',min:'0.001',step:'0.001'});
   let resUnit = 'sqm';
-  const unitBtns = h('div',{style:{display:'flex',gap:'6px',marginTop:'6px'}});
+  const unitBtns = h('div',{style:{display:'flex',gap:'6px',marginTop:'6px',display:'none'}});
 
   function makeUnitBtn(key, label, sub) {
     const btn = h('button',{style:{
@@ -2942,12 +2962,15 @@ function AddReservationModal() {
     if(!customer){errDiv.textContent='กรุณากรอกชื่อลูกค้า';errDiv.style.display='block';return;}
     errDiv.style.display='none';
     saveBtn.disabled=true; saveBtn.textContent='⏳ กำลังจอง...';
+    const unitLabel = resUnit==='sqm'?'ตร.ม':resUnit==='box'?'กล่อง':'แผ่น';
     const url = API_URL+'?'+new URLSearchParams({
       action:'addReservation',
       productId:selectedProduct.id,
       productName:selectedProduct.name,
       lot:inpLot.value,
       sqm, customer,
+      unit: unitLabel,
+      qtyRaw: raw,
       addedBy:currentUser?currentUser.name:''
     });
     const res = await fetch(url);
@@ -2956,7 +2979,7 @@ function AddReservationModal() {
       showToast('✓ จองสำเร็จ เลขจอง: '+data.id);
       await fetchReservations();
       ui.modal=null;
-      render();
+      render(); // ← ปิด modal
     } else {
       errDiv.textContent='❌ '+data.error;
       errDiv.style.display='block';
