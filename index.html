@@ -2816,6 +2816,8 @@ function AddReservationModal() {
           }},'เปลี่ยนสินค้า'));
         // อัปเดต lot dropdown
         updateLotOptions(p.id);
+        // build unit buttons
+        buildUnitBtns(p);
       });
       productList.appendChild(item);
     });
@@ -2839,37 +2841,104 @@ function AddReservationModal() {
   }
 
   const inpSqm = h('input',{type:'number',className:'input',placeholder:'เช่น 50.5',min:'0.001',step:'0.001'});
+  let resUnit = 'sqm';
+  const unitBtns = h('div',{style:{display:'flex',gap:'6px',marginTop:'6px'}});
+
+  function makeUnitBtn(key, label, sub) {
+    const btn = h('button',{style:{
+      flex:1, padding:'8px 4px', border:'2px solid #e2e8f0', borderRadius:'8px',
+      cursor:'pointer', background:'white', fontFamily:'inherit', transition:'all .15s',
+      textAlign:'center'
+    }});
+    btn.appendChild(h('div',{style:{fontWeight:700,fontSize:'13px'}},label));
+    btn.appendChild(h('div',{style:{fontSize:'10px',color:'#94a3b8',marginTop:'2px'}},sub));
+    btn.addEventListener('click',()=>{
+      resUnit=key;
+      unitBtns.querySelectorAll('button').forEach(b=>{
+        b.style.border='2px solid #e2e8f0';
+        b.style.background='white';
+        b.querySelector('div').style.color='#0f172a';
+      });
+      btn.style.border='2px solid #059669';
+      btn.style.background='#f0fdf4';
+      btn.querySelector('div').style.color='#059669';
+      updateResPreview();
+    });
+    if(key==='sqm'){
+      btn.style.border='2px solid #059669';
+      btn.style.background='#f0fdf4';
+      btn.querySelector('div').style.color='#059669';
+    }
+    return btn;
+  }
+
+  const sqmPerBox = (parseFloat(selectedProduct?.pcsPerBox)||1)*(parseFloat(selectedProduct?.sqmPerPc)||1);
+  const pcsPerBox = parseFloat(selectedProduct?.pcsPerBox)||1;
+  const sqmPerPc = parseFloat(selectedProduct?.sqmPerPc)||1;
+
+  const calcPreview = h('div',{style:{fontSize:'12px',color:'#64748b',background:'#f8fafc',padding:'8px 12px',borderRadius:'6px',marginTop:'6px',display:'none'}});
+
+  function updateResPreview() {
+    if(!selectedProduct) return;
+    const raw = parseFloat(inpSqm.value)||0;
+    if(raw<=0){ calcPreview.style.display='none'; availPreview.style.display='none'; return; }
+
+    const p = selectedProduct;
+    const pcsB = parseFloat(p.pcsPerBox)||1;
+    const sqmP = parseFloat(p.sqmPerPc)||1;
+    let totalSqm = 0;
+    if(resUnit==='sqm') totalSqm = raw;
+    else if(resUnit==='box') totalSqm = raw * pcsB * sqmP;
+    else if(resUnit==='pcs') totalSqm = raw * sqmP;
+
+    calcPreview.style.display='block';
+    calcPreview.textContent = 'รวม '+fmtNum(totalSqm,4)+' ตร.ม';
+
+    const lot = inpLot.value;
+    const available = getAvailableQty(p.id, lot);
+    availPreview.style.display='block';
+    if(totalSqm > available){
+      availPreview.textContent='⚠ จำนวนเกินที่ว่าง (ว่างจริง '+fmtNum(available,3)+' ตร.ม)';
+      availPreview.style.color='#dc2626';
+    } else {
+      availPreview.textContent='✓ จองได้ (ว่างหลังจอง '+fmtNum(available-totalSqm,3)+' ตร.ม)';
+      availPreview.style.color='#059669';
+    }
+  }
+
+  inpSqm.addEventListener('input', updateResPreview);
+
+  // สร้าง unit buttons หลังจากเลือกสินค้าแล้ว
+  function buildUnitBtns(p) {
+    unitBtns.innerHTML='';
+    const pcsB = parseFloat(p.pcsPerBox)||1;
+    const sqmP = parseFloat(p.sqmPerPc)||1;
+    unitBtns.appendChild(makeUnitBtn('sqm','ตร.ม','1 = 1 ตร.ม'));
+    unitBtns.appendChild(makeUnitBtn('box','กล่อง',pcsB+' แผ่น'));
+    unitBtns.appendChild(makeUnitBtn('pcs','แผ่น',fmtNum(sqmP,4)+' ตร.ม'));
+  }
+
+  const availPreview = h('div',{style:{fontSize:'12px',color:'#64748b',marginTop:'4px',display:'none'}});
   const inpCustomer = h('input',{className:'input',placeholder:'ชื่อลูกค้าหรือโปรเจค',list:'res-cust-list'});
   const custList = h('datalist',{id:'res-cust-list'});
   projects.forEach(c=>{const o=document.createElement('option');o.value=c;custList.appendChild(o);});
   modal.appendChild(custList);
-
-  const availPreview = h('div',{style:{fontSize:'12px',color:'#64748b',marginTop:'4px',display:'none'}});
-  inpSqm.addEventListener('input',()=>{
-    if(!selectedProduct) return;
-    const lot = inpLot.value;
-    const available = getAvailableQty(selectedProduct.id, lot);
-    const q = parseFloat(inpSqm.value)||0;
-    if(q>0){
-      availPreview.style.display='block';
-      if(q>available){
-        availPreview.textContent='⚠ จำนวนเกินที่ว่าง (ว่างจริง '+fmtNum(available,3)+' ตร.ม)';
-        availPreview.style.color='#dc2626';
-      } else {
-        availPreview.textContent='✓ จองได้ (ว่างหลังจอง '+fmtNum(available-q,3)+' ตร.ม)';
-        availPreview.style.color='#059669';
-      }
-    } else availPreview.style.display='none';
-  });
 
   const errDiv = h('div',{style:{background:'#fee2e2',color:'#991b1b',borderRadius:'8px',padding:'8px 12px',fontSize:'12px',marginBottom:'8px',display:'none'}});
   const saveBtn = h('button',{className:'btn btn-primary',style:{flex:1,justifyContent:'center',padding:'10px'}},'✓ ยืนยันการจอง');
 
   saveBtn.addEventListener('click',async()=>{
     if(!selectedProduct){errDiv.textContent='กรุณาเลือกสินค้า';errDiv.style.display='block';return;}
-    const sqm = parseFloat(inpSqm.value)||0;
+    const raw = parseFloat(inpSqm.value)||0;
+    const p2 = selectedProduct;
+    const pcsB2 = parseFloat(p2.pcsPerBox)||1;
+    const sqmP2 = parseFloat(p2.sqmPerPc)||1;
+    let sqm = 0;
+    if(resUnit==='sqm') sqm = raw;
+    else if(resUnit==='box') sqm = raw * pcsB2 * sqmP2;
+    else if(resUnit==='pcs') sqm = raw * sqmP2;
     const customer = inpCustomer.value.trim();
-    if(sqm<=0){errDiv.textContent='กรุณากรอกจำนวน';errDiv.style.display='block';return;}
+    if(raw<=0){errDiv.textContent='กรุณากรอกจำนวน';errDiv.style.display='block';return;}
     if(!customer){errDiv.textContent='กรุณากรอกชื่อลูกค้า';errDiv.style.display='block';return;}
     errDiv.style.display='none';
     saveBtn.disabled=true; saveBtn.textContent='⏳ กำลังจอง...';
@@ -2901,7 +2970,13 @@ function AddReservationModal() {
   modal.appendChild(selectedDiv);
   modal.appendChild(h('div',{style:{display:'flex',flexDirection:'column',gap:'10px'}},
     h('div',{},h('label',{className:'field-label'},'Lot'),inpLot),
-    h('div',{},h('label',{className:'field-label'},'จำนวน (ตร.ม) ★'),inpSqm,availPreview),
+    h('div',{},
+      h('label',{className:'field-label'},'จำนวน ★'),
+      inpSqm,
+      unitBtns,
+      calcPreview,
+      availPreview
+    ),
     h('div',{},h('label',{className:'field-label'},'ลูกค้า / โปรเจค ★'),inpCustomer)
   ));
   modal.appendChild(errDiv);
