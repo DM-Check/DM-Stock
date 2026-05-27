@@ -1667,7 +1667,9 @@ function TxModal(type) {
     ui.txForm.qty=inpQty.value;
     ui.txForm.location=inpLoc.value;
     ui.txForm.note=inpNote.value;
-    ui.txForm.lot=inpLot ? inpLot.value.trim() : '';
+    // อ่านค่า lot จาก dropdown โดยตรง
+    const currentLot = inpLot ? inpLot.value.trim() : ui.txForm.lot;
+    ui.txForm.lot = currentLot;
     ui.txForm.project=inpProject ? inpProject.value.trim() : '';
 
     // validation
@@ -1677,7 +1679,7 @@ function TxModal(type) {
     }
     if (type==='out') {
       const sqm=calcSqm(inpQty.value,ui.txForm.unit,p);
-      const lotInfo = productLots.find(l=>l.lot===ui.txForm.lot);
+      const lotInfo = productLots.find(l=>String(l.lot).trim()===String(ui.txForm.lot).trim());
       if (!lotInfo) { showToast('ไม่พบ Lot นี้ในระบบ','err'); return; }
       if (lotInfo.stock < sqm) { showToast('สต็อก Lot '+ui.txForm.lot+' ไม่พอ! เหลือ '+fmtNum(lotInfo.stock,3)+' ตร.ม','err'); return; }
     }
