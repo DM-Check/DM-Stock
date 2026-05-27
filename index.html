@@ -1325,7 +1325,7 @@ function renderHistoryTbody(tbody) {
     const isCancelled = tx.cancelled === true;
     const txDate = new Date(tx.date);
     const diffDays = (new Date() - txDate) / (1000*60*60*24);
-    const canCancel = canEdit() && !isCancelled && diffDays <= 3 && !!tx.timestamp;
+    const canCancel = !isCancelled && diffDays <= 3 && !!tx.timestamp && (canEdit() || isAdmin());
     const p = products.find(x=>x.id===tx.productId||x.code===tx.productCode);
 
     // เช็คว่าเป็นรายการที่ยังไม่อ่าน
@@ -1366,6 +1366,8 @@ function renderHistoryTbody(tbody) {
         h('div',{className:'product-name',style:{textDecoration:isCancelled?'line-through':'',fontSize:'12px'}},
           p?p.name:(tx.productId||tx.productCode)
         ),
+        // แสดงลูกค้าถ้ามีและเป็นรายการจ่ายออก
+        tx.project&&tx.type==='out'&&!isCancelled?h('div',{style:{fontSize:'10px',color:'#0ea5e9',fontWeight:500,marginTop:'1px'}},'→ '+tx.project):null,
         // แสดงรหัสใต้ชื่อบนมือถือ
         h('div',{className:'mobile-code',style:{fontSize:'10px',color:'#94a3b8',fontFamily:'monospace'}},
           (tx.productCode||tx.productId)+(tx.lot?' · '+tx.lot:'')
@@ -2339,6 +2341,16 @@ function CancelTxModal() {
       if (data.success) {
         isSaving=false; ui.modal=null;
         showToast('✓ ยกเลิกรายการสำเร็จ · สต็อกถูกคืนแล้ว');
+
+        // ถ้ารายการจ่ายออกมาจากการจอง → ยกเลิกการจองด้วย
+        if (tx.type==='out' && tx.note && tx.note.includes('จากการจอง')) {
+          const resId = tx.note.replace('จากการจอง','').trim();
+          if (resId) {
+            await fetch(API_URL+'?'+new URLSearchParams({action:'cancelReservation',resId}));
+            await fetchReservations();
+          }
+        }
+
         await Promise.all([fetchProducts(), fetchTransactions(), fetchLots()]);
         render();
       } else {
