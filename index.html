@@ -3136,6 +3136,128 @@ function generateDONumber() {
   return yy+mm+String(seq).padStart(3,'0');
 }
 
+function DOViewModal() {
+  const doNo = ui.viewDO;
+  const o = deliveryOrders.find(x=>String(x.doNo).trim()===String(doNo).trim());
+  if(!o) return null;
+
+  const isCancelled = String(o.status||'').trim()==='ยกเลิก';
+  const isMine = currentUser && String(o.createdBy||'').trim()===String(currentUser.name||'').trim();
+  const canCancel = !isCancelled && (isMine || canEdit() || isAdmin());
+  const canDelete = isCancelled && isAdmin();
+
+  const overlay = h('div',{className:'modal-overlay',onClick:e=>{if(e.target===overlay){ui.modal=null;ui.viewDO=null;render();}}});
+  const modal = h('div',{className:'modal',style:{padding:'0',maxWidth:'640px',maxHeight:'90vh',display:'flex',flexDirection:'column'}});
+
+  // Header
+  const header = h('div',{style:{padding:'16px 20px',borderBottom:'1px solid #e2e8f0',background:isCancelled?'#fef2f2':'#f8fafc',display:'flex',alignItems:'center',justifyContent:'space-between',gap:'12px',flexShrink:0}});
+  header.appendChild(h('div',{},
+    h('div',{style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'4px'}},
+      h('div',{style:{fontSize:'11px',color:'#64748b',fontWeight:500}},'ใบส่งของเลขที่'),
+      isCancelled
+        ? h('span',{style:{background:'#fee2e2',color:'#991b1b',borderRadius:'12px',padding:'2px 8px',fontSize:'10px',fontWeight:600}},'ยกเลิก')
+        : h('span',{style:{background:'#dcfce7',color:'#166534',borderRadius:'12px',padding:'2px 8px',fontSize:'10px',fontWeight:600}},'ใช้งาน')
+    ),
+    h('div',{style:{fontFamily:'monospace',fontWeight:800,fontSize:'20px',color:isCancelled?'#94a3b8':'#0ea5e9',textDecoration:isCancelled?'line-through':'none'}},o.doNo)
+  ));
+  header.appendChild(h('button',{className:'btn btn-ghost',style:{padding:'5px 9px',fontSize:'16px'},
+    onClick:()=>{ui.modal=null;ui.viewDO=null;render();}},'✕'));
+  modal.appendChild(header);
+
+  // Body (scrollable)
+  const body = h('div',{style:{padding:'18px 20px',overflowY:'auto',flex:1}});
+
+  // Info grid
+  const info = h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'16px'}});
+  function infoCell(label, value, full) {
+    return h('div',{style:full?{gridColumn:'1 / -1'}:{}},
+      h('div',{style:{fontSize:'11px',color:'#94a3b8',fontWeight:500,marginBottom:'2px'}},label),
+      h('div',{style:{fontSize:'13px',color:'#0f172a',fontWeight:500}},value||'-')
+    );
+  }
+  info.appendChild(infoCell('วันที่', fmtDate(o.date)));
+  info.appendChild(infoCell('สร้างโดย', o.createdBy||'-'));
+  info.appendChild(infoCell('ลูกค้า', o.billTo, true));
+  info.appendChild(infoCell('สถานที่ส่ง', o.shipTo));
+  info.appendChild(infoCell('Po.No.', o.poNo));
+  if(o.phone) info.appendChild(infoCell('โทร', o.phone, true));
+  body.appendChild(info);
+
+  // Cancellation info
+  if(isCancelled) {
+    const cancelBox = h('div',{style:{background:'#fef2f2',border:'1px solid #fecaca',borderRadius:'8px',padding:'10px 12px',marginBottom:'14px',fontSize:'12px'}});
+    cancelBox.appendChild(h('div',{style:{fontWeight:600,color:'#991b1b',marginBottom:'4px'}},'⚠ ใบส่งของถูกยกเลิก'));
+    if(o.cancelBy) cancelBox.appendChild(h('div',{style:{color:'#64748b'}},'ยกเลิกโดย: '+o.cancelBy));
+    if(o.cancelDate) cancelBox.appendChild(h('div',{style:{color:'#64748b'}},'วันที่ยกเลิก: '+fmtDate(o.cancelDate)));
+    body.appendChild(cancelBox);
+  }
+
+  // Items
+  body.appendChild(h('div',{style:{fontSize:'12px',fontWeight:700,color:'#475569',marginBottom:'8px',display:'flex',alignItems:'center',gap:'6px'}},
+    h('span',{},'📦'),
+    h('span',{},'รายการสินค้า ('+(Array.isArray(o.items)?o.items.length:0)+' รายการ)')
+  ));
+
+  if(Array.isArray(o.items) && o.items.length>0) {
+    const itemsBox = h('div',{style:{border:'1px solid #e2e8f0',borderRadius:'8px',overflow:'hidden'}});
+    let totalSqm = 0;
+    o.items.forEach((it,idx)=>{
+      const p = products.find(x=>x.id===it.productId||x.code===it.productId);
+      const sqm = parseFloat(it.sqm)||0;
+      totalSqm += sqm;
+      const pcsPerBox = p?parseFloat(p.pcsPerBox)||1:1;
+      const sqmPerPc = p?parseFloat(p.sqmPerPc)||1:1;
+      const pcs = sqmPerPc>0?sqm/sqmPerPc:0;
+      const boxes = pcsPerBox>0?pcs/pcsPerBox:0;
+
+      const row = h('div',{style:{padding:'10px 12px',borderBottom:idx<o.items.length-1?'1px solid #f1f5f9':'none',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'10px'}});
+      row.appendChild(h('div',{style:{flex:1,minWidth:0}},
+        h('div',{style:{fontWeight:600,fontSize:'13px',color:'#0f172a'}},it.productName||(p?p.name:it.productId)),
+        h('div',{style:{fontSize:'11px',color:'#64748b',marginTop:'2px'}},
+          (it.size||(p?p.size:'')||'')+(it.lot?' · Lot '+it.lot:'')
+        )
+      ));
+      row.appendChild(h('div',{style:{textAlign:'right',whiteSpace:'nowrap'}},
+        h('div',{style:{fontWeight:700,color:'#0ea5e9',fontSize:'13px'}},fmtNum(sqm,2)+' ตร.ม'),
+        h('div',{style:{fontSize:'11px',color:'#94a3b8',marginTop:'2px'}},fmtNum(pcs,2)+' แผ่น · '+fmtNum(boxes,2)+' กล่อง')
+      ));
+      itemsBox.appendChild(row);
+    });
+    body.appendChild(itemsBox);
+
+    // Total
+    body.appendChild(h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px',marginTop:'8px',background:'#f0f9ff',border:'1px solid #bae6fd',borderRadius:'8px'}},
+      h('div',{style:{fontSize:'12px',fontWeight:600,color:'#0c4a6e'}},'รวมทั้งหมด'),
+      h('div',{style:{fontSize:'15px',fontWeight:800,color:'#0ea5e9'}},fmtNum(totalSqm,2)+' ตร.ม')
+    ));
+  } else {
+    body.appendChild(h('div',{style:{padding:'20px',textAlign:'center',color:'#94a3b8',fontSize:'12px',border:'1px dashed #e2e8f0',borderRadius:'8px'}},'ไม่มีรายการ'));
+  }
+
+  modal.appendChild(body);
+
+  // Footer actions
+  const footer = h('div',{style:{padding:'12px 20px',borderTop:'1px solid #e2e8f0',background:'#f8fafc',display:'flex',gap:'8px',flexShrink:0,flexWrap:'wrap'}});
+  footer.appendChild(h('button',{className:'btn btn-ghost',style:{flex:'1 1 auto',justifyContent:'center'},
+    onClick:()=>{ui.modal=null;ui.viewDO=null;render();}},'ปิด'));
+  if(!isCancelled) {
+    footer.appendChild(h('button',{className:'btn btn-outline',style:{flex:'1 1 auto',justifyContent:'center'},
+      onClick:()=>reprintDO(o)},'🖨 พิมพ์ซ้ำ'));
+  }
+  if(canCancel) {
+    footer.appendChild(h('button',{className:'btn btn-outline',style:{flex:'1 1 auto',justifyContent:'center',color:'#dc2626',borderColor:'#fecaca'},
+      onClick:async ()=>{await cancelDeliveryOrder(o);ui.modal=null;ui.viewDO=null;render();}},'ยกเลิก'));
+  }
+  if(canDelete) {
+    footer.appendChild(h('button',{className:'btn btn-danger',style:{flex:'1 1 auto',justifyContent:'center'},
+      onClick:async ()=>{await deleteDeliveryOrder(o);ui.modal=null;ui.viewDO=null;render();}},'🗑 ลบ'));
+  }
+  modal.appendChild(footer);
+
+  overlay.appendChild(modal);
+  return overlay;
+}
+
 async function cancelDeliveryOrder(o) {
   if(!o || !o.doNo) return;
   if(!confirm('ยืนยันการยกเลิกใบส่งของ '+o.doNo+'?\n\nรายการจอง/จ่ายออกที่ผูกไว้จะกลับมาออกใบใหม่ได้')) return;
@@ -3230,7 +3352,8 @@ function DeliveryOrderPage() {
             const canCancel = !isCancelled && (isMine || canEdit() || isAdmin());
             const canDelete = isCancelled && isAdmin();
             return h('tr',{style:isCancelled?{opacity:0.55,background:'#fef2f2'}:{}},
-              h('td',{style:{fontFamily:'monospace',fontWeight:700,color:isCancelled?'#94a3b8':'#0ea5e9',fontSize:'12px',textDecoration:isCancelled?'line-through':'none'}},o.doNo),
+              h('td',{style:{fontFamily:'monospace',fontWeight:700,color:isCancelled?'#94a3b8':'#0ea5e9',fontSize:'12px',textDecoration:isCancelled?'line-through':'none',cursor:'pointer'},
+                onClick:()=>{ui.viewDO=o.doNo;ui.modal='viewDO';render();}},o.doNo),
               h('td',{style:{fontSize:'12px',color:'#64748b',whiteSpace:'nowrap'}},fmtDate(o.date)),
               h('td',{style:{fontWeight:500}},o.billTo),
               h('td',{className:'desktop-only',style:{fontSize:'12px',color:'#64748b'}},o.shipTo||'-'),
@@ -4718,6 +4841,7 @@ function render() {
   if(ui.modal==='addReservation'){const m=AddReservationModal();if(m)app.appendChild(m);}
   if(ui.modal==='createDO'){const m=CreateDOModal();if(m)app.appendChild(m);}
   if(ui.modal==='addDOItem'){const m=AddDOItemModal();if(m)app.appendChild(m);}
+  if(ui.modal==='viewDO'){const m=DOViewModal();if(m)app.appendChild(m);}
   else if(ui.modal==='detail'){const m=DetailModal();if(m)app.appendChild(m);}
   else if(ui.modal==='uploadImage'){const m=UploadImageModal();if(m)app.appendChild(m);}
   else if(ui.modal==='editProduct'){const m=EditProductModal();if(m)app.appendChild(m);}
