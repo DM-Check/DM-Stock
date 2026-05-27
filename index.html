@@ -2692,10 +2692,32 @@ function ReservationsPage() {
                   h('button',{className:'btn btn-success',style:{fontSize:'11px',padding:'3px 8px'},
                     onClick:async()=>{
                       if(!confirm('จ่ายสินค้าตามจอง "'+r.id+'" แล้ว?')) return;
+                      const p2 = products.find(x=>x.id===r.productId||x.code===r.productId);
+                      if(!p2){showToast('❌ ไม่พบสินค้า','err');return;}
+                      // บันทึกจ่ายออกจริง
+                      const txUrl = API_URL+'?'+new URLSearchParams({
+                        action:'addOut',
+                        id:p2.id, code:p2.code||'', name:p2.name||'',
+                        sqm:r.sqm, date:td(),
+                        lot:r.lot||'', project:r.customer||'',
+                        pcsPerBox:p2.pcsPerBox||1, sqmPerPc:p2.sqmPerPc||0,
+                        size:p2.size||'',
+                        note:'จากการจอง '+r.id,
+                        addedBy:currentUser?currentUser.name:''
+                      });
+                      const txRes = await fetch(txUrl);
+                      const txData = await txRes.json();
+                      if(!txData.success){showToast('❌ บันทึกจ่ายออกไม่สำเร็จ: '+(txData.error||''),'err');return;}
+                      // อัปเดตสถานะจอง
                       const res = await fetch(API_URL+'?'+new URLSearchParams({action:'completeReservation',resId:r.id}));
                       const data = await res.json();
-                      if(data.success){showToast('✓ บันทึกจ่ายแล้ว');await fetchReservations();render();}
-                      else showToast('❌ '+data.error,'err');
+                      if(data.success){
+                        showToast('✓ บันทึกจ่ายออกและอัปเดตการจองแล้ว');
+                        await fetchReservations();
+                        await fetchProducts();
+                        fetchLots();
+                        render();
+                      } else showToast('❌ '+data.error,'err');
                     }},'✓ จ่ายแล้ว'),
                   h('button',{className:'btn btn-outline',style:{fontSize:'11px',padding:'3px 8px'},
                     onClick:async()=>{
