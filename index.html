@@ -216,7 +216,7 @@
 
 <script>
 // ===== CONFIG =====
-const API_URL = "https://script.google.com/macros/s/AKfycbxf_yi_bqmFdxMqnkkQ-HX-s8YU-GOxsB6K3AHiRBTrZdhmaMIw8u8DSF_HkOwUPlOzww/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbx9Vo3jvqv1Q5p8Xa663B3Jy0WHC2Ya4DrAl7DzhV7WsjJ96_aCb1lLOXnlPayMju1W1Q/exec";
 const SESSION_KEY = 'dm_session_v1';
 const SESSION_DAYS = 30;
 
@@ -1404,14 +1404,20 @@ function renderHistoryTbody(tbody) {
           ? h('span',{style:{color:'#ef4444',fontSize:'10px'}},(tx.cancelBy||'')+': '+(tx.cancelReason||'-'))
           : (tx.note||'-')
       ),
-      // ปุ่มยกเลิก — แสดงเสมอไม่ต้อง scroll
+      // ปุ่มแก้ไข + ยกเลิก
       h('td',{style:{textAlign:'center',whiteSpace:'nowrap'}},
-        canCancel
-          ? h('button',{className:'btn btn-danger',style:{fontSize:'10px',padding:'2px 6px'},
-              onClick:e=>{e.stopPropagation();ui.selectedId=tx.rowIndex+'|'+tx.type;ui.modal='cancelTx';render();}},'ยกเลิก')
-          : isCancelled ? h('span',{style:{fontSize:'10px',color:'#94a3b8'}},'✗')
-          : diffDays>3 ? h('span',{style:{fontSize:'10px',color:'#e2e8f0'}},'—')
-          : null
+        h('div',{style:{display:'flex',gap:'4px',justifyContent:'center'}},
+          !isCancelled && (canEdit()||isAdmin())
+            ? h('button',{className:'btn btn-outline',style:{fontSize:'10px',padding:'2px 6px'},
+                onClick:e=>{e.stopPropagation();ui.selectedId=tx.rowIndex+'|'+tx.type;ui.modal='editTx';render();}},'✏️ แก้')
+            : null,
+          canCancel
+            ? h('button',{className:'btn btn-danger',style:{fontSize:'10px',padding:'2px 6px'},
+                onClick:e=>{e.stopPropagation();ui.selectedId=tx.rowIndex+'|'+tx.type;ui.modal='cancelTx';render();}},'ยกเลิก')
+            : isCancelled ? h('span',{style:{fontSize:'10px',color:'#94a3b8'}},'✗')
+            : diffDays>3 ? h('span',{style:{fontSize:'10px',color:'#e2e8f0'}},'—')
+            : null
+        )
       )
     );
     tbody.appendChild(row);
@@ -2299,6 +2305,111 @@ function EditProductModal() {
   ));
 
   modal.appendChild(form);
+  overlay.appendChild(modal);
+  return overlay;
+}
+
+// ===== EDIT TRANSACTION MODAL =====
+function EditTxModal() {
+  const parts = (ui.selectedId||'').split('|');
+  const rowIndex = parseInt(parts[0]);
+  const txType = parts[1];
+  const tx = transactions.find(t => t.rowIndex === rowIndex && t.type === txType);
+  if (!tx) return null;
+  if (!canEdit() && !isAdmin()) return null;
+
+  const p = products.find(x=>x.id===tx.productId||x.code===tx.productCode);
+  const overlay = h('div',{className:'modal-overlay',onClick:e=>{if(e.target===overlay&&!isSaving){ui.modal=null;render();}}});
+  const modal = h('div',{className:'modal',style:{padding:'24px',maxWidth:'500px'}});
+
+  modal.appendChild(h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}},
+    h('div',{},
+      h('div',{style:{fontWeight:700,fontSize:'16px',color:'#0ea5e9'}},'✏️ แก้ไขรายการ'),
+      h('div',{style:{fontSize:'12px',color:'#64748b',marginTop:'2px'}},(tx.type==='in'?'รับเข้า':'จ่ายออก')+' · '+fmtDate(tx.date))
+    ),
+    h('button',{className:'btn btn-ghost',style:{padding:'5px 9px'},onClick:()=>{ui.modal=null;render();}},'✕')
+  ));
+
+  // Product display (ไม่ให้แก้)
+  modal.appendChild(h('div',{style:{background:'#f0f9ff',border:'1px solid #bae6fd',borderRadius:'8px',padding:'10px 12px',marginBottom:'14px'}},
+    h('div',{style:{fontSize:'12px',color:'#64748b',marginBottom:'2px'}},'สินค้า'),
+    h('div',{style:{fontWeight:600,fontSize:'13px'}},p?p.name:(tx.productCode||tx.productId)),
+    h('div',{style:{fontSize:'11px',color:'#64748b',fontFamily:'monospace',marginTop:'2px'}},tx.productCode||tx.productId)
+  ));
+
+  // Editable fields
+  const inpLot = h('input',{className:'input',value:tx.lot||''});
+  const inpSqm = h('input',{type:'number',className:'input',value:tx.sqm,step:'0.001',min:'0.001'});
+  const inpProject = h('input',{className:'input',value:tx.project||'',placeholder:'ชื่อลูกค้า / โปรเจค'});
+  const inpLocation = h('input',{className:'input',value:tx.location||'',placeholder:tx.type==='in'?'ที่เก็บ':'Sample'});
+
+  const grid = h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'12px'}});
+  grid.appendChild(h('div',{},h('label',{className:'field-label'},'จำนวน (ตร.ม) ★'),inpSqm));
+  grid.appendChild(h('div',{},h('label',{className:'field-label'},'Lot'),inpLot));
+  modal.appendChild(grid);
+
+  modal.appendChild(h('div',{style:{marginBottom:'10px'}},h('label',{className:'field-label'},'โปรเจค / ลูกค้า'),inpProject));
+  modal.appendChild(h('div',{style:{marginBottom:'14px'}},h('label',{className:'field-label'},tx.type==='in'?'ที่เก็บ':'Sample'),inpLocation));
+
+  // Warning if sqm changed (affects stock)
+  modal.appendChild(h('div',{style:{background:'#fffbeb',border:'1px solid #fde68a',borderRadius:'8px',padding:'8px 12px',marginBottom:'12px',fontSize:'11px',color:'#92400e'}},
+    '⚠ การแก้จำนวน (ตร.ม) จะกระทบสต็อกคงเหลือ และคำนวณกล่อง/แผ่น/เศษให้ใหม่อัตโนมัติ'
+  ));
+
+  const errDiv = h('div',{style:{background:'#fee2e2',color:'#991b1b',borderRadius:'8px',padding:'9px 12px',fontSize:'13px',marginBottom:'12px',display:'none'}});
+  modal.appendChild(errDiv);
+
+  const saveBtn = h('button',{className:'btn btn-primary',style:{flex:2,justifyContent:'center',padding:'10px'}},'💾 บันทึกการแก้ไข');
+  saveBtn.addEventListener('click', async()=>{
+    const newSqm = parseFloat(inpSqm.value)||0;
+    if(newSqm<=0) { errDiv.textContent='จำนวนต้องมากกว่า 0'; errDiv.style.display='block'; return; }
+
+    saveBtn.disabled=true; isSaving=true;
+    saveBtn.textContent='⏳ กำลังบันทึก...';
+    errDiv.style.display='none';
+
+    try {
+      const url = API_URL + '?' + new URLSearchParams({
+        action: 'editTransaction',
+        rowIndex: tx.rowIndex,
+        txType: tx.type,
+        sqm: newSqm,
+        lot: inpLot.value.trim(),
+        project: inpProject.value.trim(),
+        location: inpLocation.value.trim(),
+        editBy: currentUser?currentUser.name:''
+      });
+      const res = await fetch(url);
+      const data = await res.json();
+      if(data.success){
+        isSaving=false; ui.modal=null;
+        showToast('✓ แก้ไขรายการสำเร็จ');
+        await fetchTransactions();
+        await fetchProducts();
+        await fetchLots();
+        render();
+      } else {
+        isSaving=false;
+        saveBtn.disabled=false;
+        saveBtn.textContent='💾 บันทึกการแก้ไข';
+        errDiv.textContent='❌ '+(data.error||'บันทึกไม่สำเร็จ');
+        errDiv.style.display='block';
+      }
+    } catch(e) {
+      isSaving=false;
+      saveBtn.disabled=false;
+      saveBtn.textContent='💾 บันทึกการแก้ไข';
+      errDiv.textContent='❌ '+e.message;
+      errDiv.style.display='block';
+    }
+  });
+
+  modal.appendChild(h('div',{style:{display:'flex',gap:'8px'}},
+    h('button',{className:'btn btn-ghost',style:{flex:1,justifyContent:'center',padding:'10px'},
+      onClick:()=>{ui.modal=null;render();}},'ยกเลิก'),
+    saveBtn
+  ));
+
   overlay.appendChild(modal);
   return overlay;
 }
@@ -4826,6 +4937,7 @@ function render() {
   else if(ui.modal==='uploadImage'){const m=UploadImageModal();if(m)app.appendChild(m);}
   else if(ui.modal==='editProduct'){const m=EditProductModal();if(m)app.appendChild(m);}
   else if(ui.modal==='cancelTx'){const m=CancelTxModal();if(m)app.appendChild(m);}
+  else if(ui.modal==='editTx'){const m=EditTxModal();if(m)app.appendChild(m);}
   else if(ui.modal==='addProduct'){const m=AddProductModal();if(m)app.appendChild(m);}
   else if(ui.modal==='addUser'){const m=AddUserModal();if(m)app.appendChild(m);}
   else if(ui.modal==='editUser'){const m=EditUserModal();if(m)app.appendChild(m);}
