@@ -216,7 +216,7 @@
 
 <script>
 // ===== CONFIG =====
-const API_URL = "https://script.google.com/macros/s/AKfycbzd987C_XoavSrD5JkwwDb9anrYh8uVtWlgRoE28DP9w5pv6vHVv6YVPflN6oxvenOU9A/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxfoZXn65w-_3BCxKyxxaTkJIIt3I0xdELJVb-o3Xa26HzYNIeCyRUbd4TCDeE5gojwEA/exec";
 const SESSION_KEY = 'dm_session_v1';
 const SESSION_DAYS = 30;
 
@@ -355,6 +355,7 @@ let transactions = [];
 let lots = [];
 let projects = [];
 let reservations = []; // การจอง
+let deliveryOrders = []; // ใบส่งของ
 let lastSync = null;
 let isLoading = false;
 let isLoadingTx = false;
@@ -443,6 +444,14 @@ async function fetchLots() {
       lots = data.lots;
     }
   } catch(e) { console.error('Load lots failed:', e); }
+}
+
+async function fetchDeliveryOrders() {
+  try {
+    const res = await fetch(API_URL + "?action=getDeliveryOrders");
+    const data = await res.json();
+    if (data.success) deliveryOrders = data.orders || [];
+  } catch(e) { console.error('Load DO failed:', e); }
 }
 
 async function fetchReservations() {
@@ -1371,7 +1380,8 @@ function renderHistoryTbody(tbody) {
           p?p.name:(tx.productId||tx.productCode)
         ),
         // แสดงลูกค้าถ้ามีและเป็นรายการจ่ายออก
-        tx.project&&tx.type==='out'&&!isCancelled?h('div',{style:{fontSize:'10px',color:'#0ea5e9',fontWeight:500,marginTop:'1px'}},'→ '+tx.project):null,
+        tx.project&&tx.type==='out'&&!isCancelled?h('div',{style:{fontSize:'10px',color:'#0ea5e9',fontWeight:500,marginTop:'1px',cursor:'pointer'},
+          onClick:e=>{e.stopPropagation();editTransactionProject(tx);}},'→ '+tx.project+' ✏'):null,
         // แสดงรหัสใต้ชื่อบนมือถือ
         h('div',{className:'mobile-code',style:{fontSize:'10px',color:'#94a3b8',fontFamily:'monospace'}},
           (tx.productCode||tx.productId)+(tx.lot?' · '+tx.lot:'')
@@ -1959,7 +1969,7 @@ function LoginPage() {
       saveSession(currentUser);
       showToast('ยินดีต้อนรับ '+currentUser.name+' 👋');
       await fetchProducts();
-      fetchTransactions(); fetchLots(); fetchProjects(); fetchReservations();
+      fetchTransactions(); fetchLots(); fetchProjects(); fetchReservations(); fetchDeliveryOrders();
       fetchLastRead(); // โหลด lastRead หลัง login
       render();
     } else {
@@ -3069,6 +3079,49 @@ const S2N_LOGO = "data:image/jpeg;base64,/9j/4R0xRXhpZgAATU0AKgAAAAgADAEAAAMAAAA
 let doItems = []; // รายการในใบส่งของปัจจุบัน
 let doForm = { billTo:'', shipTo:'', poNo:'', sale:'', date:'' };
 
+function reprintDO(o) {
+  const items = Array.isArray(o.items) ? o.items : [];
+  const now = new Date(o.date||td());
+  const dateStr = now.toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const rows = items.map((item,idx)=>{
+    const p = products.find(x=>x.id===item.productId||x.code===item.productId);
+    const pcsB = parseFloat(p?.pcsPerBox||item.pcsPerBox)||1;
+    const sqmP = parseFloat(p?.sqmPerPc||item.sqmPerPc)||1;
+    const boxes = Math.round(item.sqm/(pcsB*sqmP));
+    const desc = [item.productId, p?p.name:item.productName, item.size?'Size: '+item.size:''].filter(Boolean).join('<br>');
+    return '<tr><td style="text-align:center;border:1px solid #b0c4de;padding:8px 6px;height:48px">'+(idx+1)+'</td><td style="border:1px solid #b0c4de;padding:8px;height:48px">'+desc+'</td><td style="text-align:center;border:1px solid #b0c4de;padding:8px 6px;height:48px">'+fmtNum(item.sqm,3)+'</td><td style="text-align:center;border:1px solid #b0c4de;padding:8px 6px;height:48px">Sqm</td><td style="border:1px solid #b0c4de;padding:8px;height:48px">('+boxes+' กล่อง)</td></tr>';
+  });
+  while(rows.length<10) rows.push('<tr><td style="border:1px solid #b0c4de;padding:8px;height:48px">&nbsp;</td><td style="border:1px solid #b0c4de;padding:8px;height:48px"></td><td style="border:1px solid #b0c4de;padding:8px;height:48px"></td><td style="border:1px solid #b0c4de;padding:8px;height:48px"></td><td style="border:1px solid #b0c4de;padding:8px;height:48px"></td></tr>');
+  const html = '<html><head><meta charset="UTF-8"><title>ใบส่งของ '+o.doNo+'</title><style>body{font-family:Sarabun,Arial,sans-serif;font-size:13px;margin:0;padding:20px}@media print{body{padding:8px}.no-print{display:none}@page{size:A4;margin:8mm}}table{border-collapse:collapse;width:100%}td,th{vertical-align:middle}.sig-line{border-bottom:1px solid #333;display:inline-block;width:60%;margin:0 4px;vertical-align:bottom}</style></head><body>'+
+    '<div class="no-print" style="text-align:right;margin-bottom:12px"><button onclick="window.print()" style="background:#0ea5e9;color:white;border:none;padding:8px 20px;border-radius:6px;font-size:14px;cursor:pointer;font-family:inherit">🖨 พิมพ์</button> <button onclick="window.close()" style="background:#64748b;color:white;border:none;padding:8px 16px;border-radius:6px;font-size:14px;cursor:pointer;font-family:inherit">✕ ปิด</button></div>'+
+    '<table style="margin-bottom:10px;border-collapse:collapse"><tr><td style="width:90px;border:none;vertical-align:middle"><img src="'+S2N_LOGO+'" style="width:80px;height:80px;object-fit:contain"></td><td style="border:none;text-align:center;vertical-align:middle"><div style="font-size:22px;font-weight:800;color:#0f172a">ใบส่งของ</div><div style="font-size:15px;color:#475569;margin-top:2px">Delivery Order</div></td><td style="border:none;width:90px"></td></tr></table>'+
+    '<table style="margin-bottom:10px;border-collapse:collapse"><tr><td style="width:45%;border:1px solid #b0c4de;padding:8px 10px;vertical-align:top"><b>ลูกค้า:</b><br><span style="font-size:14px;font-weight:600">'+o.billTo+'</span></td><td style="width:30%;border:1px solid #b0c4de;padding:8px 10px;vertical-align:top"><b>สถานที่ส่ง:</b><br>'+(o.shipTo||'-')+'</td><td style="width:20%;border:1px solid #b0c4de;padding:8px 10px"><b>วันที่:</b> '+dateStr+'<br><b>Po.No.:</b> '+(o.poNo||'-')+'<br><b>เลขที่:</b> <span style="font-weight:700;color:#0ea5e9">'+o.doNo+'</span></td></tr></table>'+
+    '<table><thead><tr style="background:#e8f4ff"><th style="width:40px;border:1px solid #b0c4de;padding:8px 6px;text-align:center">ลำดับ</th><th style="border:1px solid #b0c4de;padding:8px;text-align:center">รายการ</th><th style="width:70px;border:1px solid #b0c4de;padding:8px 6px;text-align:center">จำนวน</th><th style="width:50px;border:1px solid #b0c4de;padding:8px 6px;text-align:center">หน่วย</th><th style="width:130px;border:1px solid #b0c4de;padding:8px 6px;text-align:center">หมายเหตุ</th></tr></thead><tbody>'+rows.join('')+'</tbody></table>'+
+    '<table style="margin-top:20px;border-collapse:collapse"><tr><td style="width:70%;padding:0;vertical-align:top"><table style="width:100%;border-collapse:collapse"><tr><td style="padding:6px 0;font-size:13px">ผู้ส่งสินค้า <span class="sig-line"></span></td></tr><tr><td style="padding:2px 0 16px 0;font-size:12px;color:#475569;padding-left:60px">วันที่ ........... / ........... / ...........</td></tr><tr><td style="padding:6px 0;font-size:13px">ผู้รับสินค้า <span class="sig-line"></span></td></tr><tr><td style="padding:2px 0 8px 0;font-size:12px;color:#475569;padding-left:60px">วันที่ ........... / ........... / ...........</td></tr><tr><td style="padding:4px 0;font-size:12px;color:#475569">เบอร์โทรผู้รับ <span style="border-bottom:1px solid #333;display:inline-block;width:200px;margin:0 4px;vertical-align:bottom">'+(o.phone||'')+'</span></td></tr></table></td><td style="width:30%;vertical-align:bottom;text-align:right;padding-bottom:8px"><div style="font-style:italic;color:#475569;font-size:12px">ได้ตรวจรับเป็นที่เรียบร้อยแล้ว</div></td></tr></table></body></html>';
+  const w = window.open('','_blank','width=820,height=1000');
+  if(w){ w.document.write(html); w.document.close(); }
+}
+
+async function editTransactionProject(tx) {
+  const newProject = prompt('แก้ไขชื่อลูกค้า/โปรเจค:', tx.project||'');
+  if (newProject === null) return;
+  const url = API_URL+'?'+new URLSearchParams({
+    action:'updateTransactionProject',
+    rowIndex: tx.rowIndex,
+    txType: tx.type,
+    newProject: newProject.trim()
+  });
+  const res = await fetch(url);
+  const data = await res.json();
+  if(data.success){
+    showToast('✓ แก้ไขชื่อลูกค้าแล้ว');
+    await fetchTransactions();
+    render();
+  } else {
+    showToast('❌ '+(data.error||'เกิดข้อผิดพลาด'),'err');
+  }
+}
+
 function generateDONumber() {
   const now = new Date();
   const buddhistYear = now.getFullYear() - 1957; // พ.ศ. - 543 + 500 = ค.ศ. + 43 -> แต่โจทย์บอกปี 2605 = 26, เดือน 05
@@ -3085,28 +3138,61 @@ function generateDONumber() {
 
 function DeliveryOrderPage() {
   return h('div',{style:{display:'flex',flexDirection:'column',gap:'14px'}},
-    // Header card
     h('div',{className:'card',style:{padding:'14px 16px',background:'#0f172a'}},
       h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between'}},
         h('div',{style:{display:'flex',alignItems:'center',gap:'10px'}},
           h('span',{style:{fontSize:'20px'}},'📄'),
           h('div',{},
             h('div',{style:{color:'white',fontWeight:700,fontSize:'15px'}},'ใบส่งของ'),
-            h('div',{style:{color:'#94a3b8',fontSize:'12px'}},'Delivery Order')
+            h('div',{style:{color:'#94a3b8',fontSize:'12px'}},'ออกใบแล้ว '+deliveryOrders.length+' ใบ')
           )
         ),
         h('button',{className:'btn btn-primary',style:{fontSize:'12px'},
           onClick:()=>{
             doItems=[];
-            doForm={billTo:'',shipTo:'',poNo:'',sale:currentUser?currentUser.name:'',date:td()};
-            ui.modal='createDO';
-            render();
+            doForm={billTo:'',shipTo:'',poNo:'',phone:'',date:td()};
+            ui.modal='createDO'; render();
           }},'+ สร้างใบส่งของ')
       )
     ),
-    h('div',{className:'card empty-state'},
+
+    // ประวัติใบส่งของ
+    deliveryOrders.length > 0 ? h('div',{className:'card'},
+      h('div',{style:{padding:'12px 16px',borderBottom:'1px solid #e2e8f0',fontWeight:700,fontSize:'13px'}},'📋 ประวัติใบส่งของ'),
+      h('div',{style:{overflowX:'auto'}},
+        h('table',{},
+          h('thead',{},h('tr',{},
+            h('th',{},'เลขที่'),
+            h('th',{},'วันที่'),
+            h('th',{},'ลูกค้า'),
+            h('th',{className:'desktop-only'},'สถานที่ส่ง'),
+            h('th',{className:'desktop-only'},'Po.No.'),
+            h('th',{},'รายการ'),
+            h('th',{className:'desktop-only'},'สร้างโดย'),
+            h('th',{},'')
+          )),
+          h('tbody',{},...deliveryOrders.slice().reverse().map(o=>
+            h('tr',{},
+              h('td',{style:{fontFamily:'monospace',fontWeight:700,color:'#0ea5e9',fontSize:'12px'}},o.doNo),
+              h('td',{style:{fontSize:'12px',color:'#64748b',whiteSpace:'nowrap'}},fmtDate(o.date)),
+              h('td',{style:{fontWeight:500}},o.billTo),
+              h('td',{className:'desktop-only',style:{fontSize:'12px',color:'#64748b'}},o.shipTo||'-'),
+              h('td',{className:'desktop-only',style:{fontSize:'12px',color:'#64748b'}},o.poNo||'-'),
+              h('td',{style:{fontSize:'12px',color:'#64748b'}},
+                Array.isArray(o.items)?o.items.length+' รายการ':'-'
+              ),
+              h('td',{className:'desktop-only',style:{fontSize:'12px',color:'#64748b'}},o.createdBy||'-'),
+              h('td',{},
+                h('button',{className:'btn btn-outline',style:{fontSize:'11px',padding:'3px 8px'},
+                  onClick:()=>reprintDO(o)},'🖨 พิมพ์ซ้ำ')
+              )
+            )
+          ))
+        )
+      )
+    ) : h('div',{className:'card empty-state'},
       h('div',{className:'empty-icon'},'📄'),
-      h('div',{style:{fontWeight:600}},'สร้างใบส่งของใหม่'),
+      h('div',{style:{fontWeight:600}},'ยังไม่มีใบส่งของ'),
       h('div',{style:{fontSize:'12px',color:'#94a3b8',marginTop:'4px'}},'กดปุ่ม + สร้างใบส่งของ')
     )
   );
@@ -3427,7 +3513,7 @@ function AddDOItemModal() {
   return overlay;
 }
 
-function printDO() {
+async function printDO() {
   const doNo = generateDONumber();
   const now = new Date(doForm.date||td());
   const dateStr = now.toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric'});
@@ -3546,7 +3632,29 @@ function printDO() {
 
   const w = window.open('','_blank','width=820,height=1000');
   if(w){ w.document.write(html); w.document.close(); }
-  else { showToast('❌ กรุณาอนุญาต popup ในเบราว์เซอร์','err'); }
+  else { showToast('❌ กรุณาอนุญาต popup ในเบราว์เซอร์','err'); return; }
+
+  // บันทึกลง Sheet
+  try {
+    const saveUrl = API_URL+'?'+new URLSearchParams({
+      action:'saveDeliveryOrder',
+      doNo, date:doForm.date||td(),
+      billTo:doForm.billTo, shipTo:doForm.shipTo||'',
+      poNo:doForm.poNo||'', phone:doForm.phone||'',
+      createdBy:currentUser?currentUser.name:'',
+      items:JSON.stringify(doItems.filter(i=>!i.cancelled).map(i=>({
+        productId:i.productId, productName:i.productName,
+        lot:i.lot, sqm:i.sqm, size:i.size
+      })))
+    });
+    const res = await fetch(saveUrl);
+    const data = await res.json();
+    if(data.success){
+      showToast('✓ บันทึกใบส่งของ '+doNo+' แล้ว');
+      await fetchDeliveryOrders();
+      render();
+    }
+  } catch(e) { console.error('Save DO error:', e); }
 }
 
 
@@ -4558,7 +4666,7 @@ fetchUserNames().then(() => {
 // ถ้าล็อกอินอยู่แล้ว โหลดข้อมูลเลย
 if (currentUser) {
   fetchProducts().then(() => fetchTransactions());
-  fetchLots(); fetchProjects(); fetchReservations();
+  fetchLots(); fetchProjects(); fetchReservations(); fetchDeliveryOrders();
   fetchLastRead();
 }
 </script>
