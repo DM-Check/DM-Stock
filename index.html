@@ -216,7 +216,7 @@
 
 <script>
 // ===== CONFIG =====
-const API_URL = "https://script.google.com/macros/s/AKfycbxfoZXn65w-_3BCxKyxxaTkJIIt3I0xdELJVb-o3Xa26HzYNIeCyRUbd4TCDeE5gojwEA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycby6sFDwOab4HonWFX19WxAskVeqSbd8aPpVFgu8ZqtXG6JJG2yd6D4nIYfK3hVfWiERbg/exec";
 const SESSION_KEY = 'dm_session_v1';
 const SESSION_DAYS = 30;
 
@@ -718,7 +718,7 @@ function Sidebar() {
     {k:'history',i:'🕐',l:'ประวัติ', badge:unreadCount||null, badgeColor:'#ef4444'},
     {k:'customers',i:'👥',l:'ลูกค้า / Lot'},
     ...(canEdit()?[{k:'reservations',i:'🔖',l:'การจอง', badge:reservations.filter(r=>r.status==='จอง').length||null, badgeColor:'#f59e0b'}]:[]),
-    ...(canEdit()?[{k:'delivery',i:'📄',l:'ใบส่งของ'}]:[]),
+    {k:'delivery',i:'📄',l:'ใบส่งของ'},
     ...(canEdit()?[{k:'addproduct',i:'➕',l:'เพิ่มสินค้าใหม่'}]:[]),
     ...(isViewer?[]:isAdmin()?[{k:'alerts',i:'⚠',l:'แจ้งเตือน'}]:[]),
     ...(isViewer?[]:[{k:'discontinued',i:'🚫',l:'สินค้าเลิกขาย'}]),
@@ -3136,6 +3136,58 @@ function generateDONumber() {
   return yy+mm+String(seq).padStart(3,'0');
 }
 
+async function cancelDeliveryOrder(o) {
+  if(!o || !o.doNo) return;
+  if(!confirm('ยืนยันการยกเลิกใบส่งของ '+o.doNo+'?\n\nรายการจอง/จ่ายออกที่ผูกไว้จะกลับมาออกใบใหม่ได้')) return;
+  try {
+    const res = await fetch(API_URL+'?'+new URLSearchParams({
+      action:'cancelDeliveryOrder',
+      doNo:o.doNo,
+      cancelBy:currentUser?currentUser.name:''
+    }));
+    const data = await res.json();
+    if(data.success){
+      showToast('✓ ยกเลิกใบส่งของ '+o.doNo+' แล้ว');
+      await fetchDeliveryOrders();
+      await fetchReservations();
+      await fetchTransactions();
+      render();
+    } else {
+      showToast('❌ '+(data.error||'ยกเลิกไม่สำเร็จ'),'err');
+    }
+  } catch(e) {
+    console.error('Cancel DO error:',e);
+    showToast('❌ เกิดข้อผิดพลาด','err');
+  }
+}
+
+async function deleteDeliveryOrder(o) {
+  if(!o || !o.doNo) return;
+  if(!isAdmin()) { showToast('❌ เฉพาะ Admin เท่านั้น','err'); return; }
+  if(String(o.status||'').trim()!=='ยกเลิก') {
+    showToast('❌ ต้องยกเลิกใบส่งของก่อนถึงจะลบได้','err');
+    return;
+  }
+  if(!confirm('ลบใบส่งของ '+o.doNo+' ออกถาวร?\n\nการดำเนินการนี้ไม่สามารถย้อนกลับได้')) return;
+  try {
+    const res = await fetch(API_URL+'?'+new URLSearchParams({
+      action:'deleteDeliveryOrder',
+      doNo:o.doNo
+    }));
+    const data = await res.json();
+    if(data.success){
+      showToast('✓ ลบใบส่งของ '+o.doNo+' แล้ว');
+      await fetchDeliveryOrders();
+      render();
+    } else {
+      showToast('❌ '+(data.error||'ลบไม่สำเร็จ'),'err');
+    }
+  } catch(e) {
+    console.error('Delete DO error:',e);
+    showToast('❌ เกิดข้อผิดพลาด','err');
+  }
+}
+
 function DeliveryOrderPage() {
   return h('div',{style:{display:'flex',flexDirection:'column',gap:'14px'}},
     h('div',{className:'card',style:{padding:'14px 16px',background:'#0f172a'}},
@@ -3169,11 +3221,16 @@ function DeliveryOrderPage() {
             h('th',{className:'desktop-only'},'Po.No.'),
             h('th',{},'รายการ'),
             h('th',{className:'desktop-only'},'สร้างโดย'),
+            h('th',{},'สถานะ'),
             h('th',{},'')
           )),
-          h('tbody',{},...deliveryOrders.slice().reverse().map(o=>
-            h('tr',{},
-              h('td',{style:{fontFamily:'monospace',fontWeight:700,color:'#0ea5e9',fontSize:'12px'}},o.doNo),
+          h('tbody',{},...deliveryOrders.slice().reverse().map(o=>{
+            const isCancelled = String(o.status||'').trim()==='ยกเลิก';
+            const isMine = currentUser && String(o.createdBy||'').trim()===String(currentUser.name||'').trim();
+            const canCancel = !isCancelled && (isMine || canEdit() || isAdmin());
+            const canDelete = isCancelled && isAdmin();
+            return h('tr',{style:isCancelled?{opacity:0.55,background:'#fef2f2'}:{}},
+              h('td',{style:{fontFamily:'monospace',fontWeight:700,color:isCancelled?'#94a3b8':'#0ea5e9',fontSize:'12px',textDecoration:isCancelled?'line-through':'none'}},o.doNo),
               h('td',{style:{fontSize:'12px',color:'#64748b',whiteSpace:'nowrap'}},fmtDate(o.date)),
               h('td',{style:{fontWeight:500}},o.billTo),
               h('td',{className:'desktop-only',style:{fontSize:'12px',color:'#64748b'}},o.shipTo||'-'),
@@ -3183,11 +3240,20 @@ function DeliveryOrderPage() {
               ),
               h('td',{className:'desktop-only',style:{fontSize:'12px',color:'#64748b'}},o.createdBy||'-'),
               h('td',{},
-                h('button',{className:'btn btn-outline',style:{fontSize:'11px',padding:'3px 8px'},
-                  onClick:()=>reprintDO(o)},'🖨 พิมพ์ซ้ำ')
-              )
-            )
-          ))
+                isCancelled
+                  ? h('span',{style:{background:'#fee2e2',color:'#991b1b',borderRadius:'12px',padding:'2px 8px',fontSize:'11px',fontWeight:600}},'ยกเลิก')
+                  : h('span',{style:{background:'#dcfce7',color:'#166534',borderRadius:'12px',padding:'2px 8px',fontSize:'11px',fontWeight:600}},'ใช้งาน')
+              ),
+              h('td',{},h('div',{style:{display:'flex',gap:'4px',flexWrap:'wrap'}},
+                !isCancelled ? h('button',{className:'btn btn-outline',style:{fontSize:'11px',padding:'3px 8px'},
+                  onClick:()=>reprintDO(o)},'🖨 พิมพ์ซ้ำ') : null,
+                canCancel ? h('button',{className:'btn btn-outline',style:{fontSize:'11px',padding:'3px 8px',color:'#dc2626',borderColor:'#fecaca'},
+                  onClick:()=>cancelDeliveryOrder(o)},'ยกเลิก') : null,
+                canDelete ? h('button',{className:'btn btn-danger',style:{fontSize:'11px',padding:'3px 8px'},
+                  onClick:()=>deleteDeliveryOrder(o)},'🗑 ลบ') : null
+              ))
+            );
+          }))
         )
       )
     ) : h('div',{className:'card empty-state'},
@@ -3319,15 +3385,13 @@ function AddDOItemModal() {
     return btn;
   }
 
-  // สินค้าที่มีการจองอยู่
-  const reservedItems = reservations.filter(r=>r.status==='จอง');
-  // สินค้าที่จ่ายออกล่าสุด (7 วัน)
-  const recentOut = transactions.filter(t=>t.type==='out'&&!t.cancelled&&
-    (new Date()-new Date(t.date))/(1000*60*60*24)<=7
-  ).slice(0,30);
+  // สินค้าที่จอง/จ่าย ที่ยังไม่ออกใบส่งของ
+  const reservedItems = reservations.filter(r=>r.status==='จอง' && !String(r.doNo||'').trim());
+  const recentOut = transactions.filter(t=>t.type==='out'&&!t.cancelled&&!String(t.doNo||'').trim());
 
   let selProduct2 = null;
   let selSource = '';
+  let selSourceMeta = null;
   let doItemUnit = 'sqm';
   const lotSel2 = h('select',{className:'input'});
   const inpQty2 = h('input',{type:'number',className:'input',placeholder:'จำนวน',min:'0.001',step:'0.001'});
@@ -3364,9 +3428,10 @@ function AddDOItemModal() {
   }
   inpQty2.addEventListener('input', updateCalc2);
 
-  function selectProduct2(p, lot='', sqm=0, source='') {
+  function selectProduct2(p, lot='', sqm=0, source='', sourceMeta=null) {
     selProduct2 = p;
     selSource = source;
+    selSourceMeta = sourceMeta || null;
     selDiv2.innerHTML='';
     selDiv2.appendChild(h('div',{style:{fontWeight:600,fontSize:'13px'}},p.name));
     selDiv2.appendChild(h('div',{style:{fontSize:'11px',color:'#64748b',fontFamily:'monospace'}},p.id+(source?' · จาก'+source:'')));
@@ -3393,7 +3458,7 @@ function AddDOItemModal() {
     // อัปเดต tab active
     tabBar.innerHTML='';
     tabBar.appendChild(makeTab('reservation','🔖 จากการจอง ('+reservedItems.length+')'));
-    tabBar.appendChild(makeTab('out','⬆ จ่ายออกล่าสุด ('+recentOut.length+')'));
+    tabBar.appendChild(makeTab('out','⬆ จ่ายแล้วรอออกใบ ('+recentOut.length+')'));
     tabBar.appendChild(makeTab('search','🔍 ค้นหาสินค้า'));
 
     tabContent.innerHTML='';
@@ -3415,13 +3480,13 @@ function AddDOItemModal() {
           ));
           row.addEventListener('mouseenter',()=>row.style.background='#f8fafc');
           row.addEventListener('mouseleave',()=>row.style.background='');
-          row.addEventListener('click',()=>selectProduct2(p,r.lot,r.sqm,'การจอง '+r.id));
+          row.addEventListener('click',()=>selectProduct2(p,r.lot,r.sqm,'การจอง '+r.id,{resId:r.id}));
           tabContent.appendChild(row);
         });
       }
     } else if(doItemTab==='out'){
       if(recentOut.length===0){
-        tabContent.appendChild(h('div',{style:{padding:'20px',textAlign:'center',color:'#94a3b8',fontSize:'12px'}},'ไม่มีรายการจ่ายออกใน 7 วัน'));
+        tabContent.appendChild(h('div',{style:{padding:'20px',textAlign:'center',color:'#94a3b8',fontSize:'12px'}},'ไม่มีรายการจ่ายออกที่รอออกใบส่งของ'));
       } else {
         recentOut.forEach(tx=>{
           const p=products.find(x=>x.id===tx.productId||x.code===tx.productCode);
@@ -3436,7 +3501,7 @@ function AddDOItemModal() {
           ));
           row.addEventListener('mouseenter',()=>row.style.background='#f8fafc');
           row.addEventListener('mouseleave',()=>row.style.background='');
-          row.addEventListener('click',()=>selectProduct2(p,tx.lot,tx.sqm,'จ่ายออก '+fmtDate(tx.date)));
+          row.addEventListener('click',()=>selectProduct2(p,tx.lot,tx.sqm,'จ่ายออก '+fmtDate(tx.date),{rowIndex:tx.rowIndex}));
           tabContent.appendChild(row);
         });
       }
@@ -3502,6 +3567,8 @@ function AddDOItemModal() {
           rawQty:raw,
           unit:doItemUnit,
           source:selSource,
+          resId:selSourceMeta&&selSourceMeta.resId?selSourceMeta.resId:'',
+          rowIndex:selSourceMeta&&selSourceMeta.rowIndex!==undefined?selSourceMeta.rowIndex:'',
           cancelled:false
         });
         ui.modal='createDO';
@@ -3636,13 +3703,14 @@ async function printDO() {
 
   // บันทึกลง Sheet
   try {
+    const activeItems = doItems.filter(i=>!i.cancelled);
     const saveUrl = API_URL+'?'+new URLSearchParams({
       action:'saveDeliveryOrder',
       doNo, date:doForm.date||td(),
       billTo:doForm.billTo, shipTo:doForm.shipTo||'',
       poNo:doForm.poNo||'', phone:doForm.phone||'',
       createdBy:currentUser?currentUser.name:'',
-      items:JSON.stringify(doItems.filter(i=>!i.cancelled).map(i=>({
+      items:JSON.stringify(activeItems.map(i=>({
         productId:i.productId, productName:i.productName,
         lot:i.lot, sqm:i.sqm, size:i.size
       })))
@@ -3650,8 +3718,23 @@ async function printDO() {
     const res = await fetch(saveUrl);
     const data = await res.json();
     if(data.success){
+      // ผูก DO กับ การจอง/รายการจ่ายออก
+      const linkItems = activeItems
+        .filter(i=>i.resId || i.rowIndex!==''&&i.rowIndex!==undefined)
+        .map(i=>({resId:i.resId||'', rowIndex:i.rowIndex===''?undefined:i.rowIndex}));
+      if(linkItems.length>0){
+        try {
+          await fetch(API_URL+'?'+new URLSearchParams({
+            action:'linkDeliveryOrder',
+            doNo,
+            items:JSON.stringify(linkItems)
+          }));
+        } catch(e) { console.error('Link DO error:', e); }
+      }
       showToast('✓ บันทึกใบส่งของ '+doNo+' แล้ว');
       await fetchDeliveryOrders();
+      await fetchReservations();
+      await fetchTransactions();
       render();
     }
   } catch(e) { console.error('Save DO error:', e); }
