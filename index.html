@@ -4840,8 +4840,8 @@ function render() {
   if(ui.modal==='in'||ui.modal==='out'){const m=TxModal(ui.modal);if(m)app.appendChild(m);}
   if(ui.modal==='addReservation'){const m=AddReservationModal();if(m)app.appendChild(m);}
   if(ui.modal==='createDO'){const m=CreateDOModal();if(m)app.appendChild(m);}
-  if(ui.modal==='addDOItem'){const m=AddDOItemModal();if(m)app.appendChild(m);}
-  if(ui.modal==='viewDO'){const m=DOViewModal();if(m)app.appendChild(m);}
+  else if(ui.modal==='addDOItem'){const m=AddDOItemModal();if(m)app.appendChild(m);}
+  else if(ui.modal==='viewDO'){const m=DOViewModal();if(m)app.appendChild(m);}
   else if(ui.modal==='detail'){const m=DetailModal();if(m)app.appendChild(m);}
   else if(ui.modal==='uploadImage'){const m=UploadImageModal();if(m)app.appendChild(m);}
   else if(ui.modal==='editProduct'){const m=EditProductModal();if(m)app.appendChild(m);}
