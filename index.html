@@ -861,7 +861,7 @@ function Dashboard() {
   if (loadError||products.length===0) return EmptyOrError();
   const stats=getStats();
   const low=products.map(p=>({...p,stock:parseFloat(p.stock)||0,status:getStatus(p)})).filter(p=>p.status!=='ok').sort((a,b)=>a.stock-b.stock).slice(0,10);
-  const recent=transactions.slice(0,8);
+  const recent=transactions.slice(0,10);
   const typeStats=getTypeStats();
 
   const kpis=[
@@ -906,22 +906,26 @@ function Dashboard() {
             )),
             h('tbody',{},...recent.slice(0,10).map(tx=>{
               const p = products.find(x=>x.id===tx.productId||x.code===tx.productCode);
-              return h('tr',{style:{cursor:'pointer'},
+              const isCancelledTx = tx.cancelled===true;
+              return h('tr',{style:{cursor:'pointer',opacity:isCancelledTx?.5:1},
                 onClick:()=>{ if(p){ui.selectedId=p.id;ui.modal='detail';render();} }},
                 h('td',{style:{color:'#64748b',fontSize:'11px',whiteSpace:'nowrap'}},fmtDate(tx.date)),
                 h('td',{},h('span',{className:'badge',style:{
-                  background:tx.type==='in'?'#dcfce7':'#fee2e2',
-                  color:tx.type==='in'?'#166534':'#991b1b',
-                  fontSize:'10px',padding:'2px 5px'
+                  background:isCancelledTx?'#f1f5f9':tx.type==='in'?'#dcfce7':'#fee2e2',
+                  color:isCancelledTx?'#94a3b8':tx.type==='in'?'#166534':'#991b1b',
+                  fontSize:'10px',padding:'2px 5px',
+                  textDecoration:isCancelledTx?'line-through':'none'
                 }},tx.type==='in'?'⬇':'⬆')),
-                h('td',{className:'product-cell'},h('div',{className:'product-name',style:{fontSize:'12px'}},
+                h('td',{className:'product-cell'},h('div',{className:'product-name',style:{fontSize:'12px',textDecoration:isCancelledTx?'line-through':'none'}},
                   p?p.name:(tx.productCode||tx.productId)
                 )),
                 h('td',{className:'desktop-only',style:{fontFamily:'monospace',fontSize:'11px',color:tx.lot?'#0f172a':'#cbd5e1'}},tx.lot||'-'),
-                h('td',{style:{textAlign:'right',fontWeight:700,fontSize:'12px',color:tx.type==='in'?'#059669':'#dc2626',whiteSpace:'nowrap'}},
+                h('td',{style:{textAlign:'right',fontWeight:700,fontSize:'12px',color:isCancelledTx?'#94a3b8':tx.type==='in'?'#059669':'#dc2626',whiteSpace:'nowrap',textDecoration:isCancelledTx?'line-through':'none'}},
                   (tx.type==='in'?'+':'-')+fmtNum(tx.sqm,2)
                 ),
-                h('td',{className:'desktop-only',style:{fontSize:'11px',color:'#94a3b8'}},tx.addedBy||'-')
+                h('td',{className:'desktop-only',style:{fontSize:'11px',color:isCancelledTx?'#dc2626':'#94a3b8',fontWeight:isCancelledTx?500:400}},
+                  isCancelledTx?'ยกเลิก':(tx.addedBy||'-')
+                )
               );
             }))
           ))
@@ -1863,12 +1867,28 @@ function DetailModal() {
         h('div',{style:{fontWeight:600,fontSize:'12px',marginBottom:'7px',color:'#374151',textTransform:'uppercase',letterSpacing:'.04em'}},'ประวัติการเคลื่อนไหว ('+ptx.length+')'),
         h('div',{style:{maxHeight:'200px',overflowY:'auto',border:'1px solid #e2e8f0',borderRadius:'8px'}},
           h('table',{style:{fontSize:'12px'}},
-            h('tbody',{},...ptx.map(tx=>h('tr',{},
-              h('td',{style:{padding:'6px 10px',color:'#64748b',whiteSpace:'nowrap',borderBottom:'1px solid #f1f5f9'}},fmtDate(tx.date)),
-              h('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f1f5f9'}},h('span',{className:'badge',style:{background:tx.type==='in'?'#dcfce7':'#fee2e2',color:tx.type==='in'?'#166534':'#991b1b'}},tx.type==='in'?'รับเข้า':'จ่ายออก')),
-              h('td',{style:{padding:'6px 10px',fontWeight:700,color:tx.type==='in'?'#059669':'#dc2626',textAlign:'right',borderBottom:'1px solid #f1f5f9'}},(tx.type==='in'?'+':'-')+fmtNum(tx.sqm,3)),
-              h('td',{style:{padding:'6px 10px',color:'#64748b',borderBottom:'1px solid #f1f5f9'}},tx.lot||tx.note||tx.location||'-')
-            )))
+            h('tbody',{},...ptx.map(tx=>{
+              const isCancelledTx = tx.cancelled===true;
+              return h('tr',{style:{opacity:isCancelledTx?.5:1}},
+                h('td',{style:{padding:'6px 10px',color:'#64748b',whiteSpace:'nowrap',borderBottom:'1px solid #f1f5f9'}},fmtDate(tx.date)),
+                h('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f1f5f9'}},
+                  isCancelledTx
+                    ? h('span',{className:'badge',style:{background:'#f1f5f9',color:'#94a3b8',textDecoration:'line-through'}},tx.type==='in'?'รับเข้า':'จ่ายออก')
+                    : h('span',{className:'badge',style:{background:tx.type==='in'?'#dcfce7':'#fee2e2',color:tx.type==='in'?'#166534':'#991b1b'}},tx.type==='in'?'รับเข้า':'จ่ายออก')
+                ),
+                h('td',{style:{padding:'6px 10px',fontWeight:700,color:isCancelledTx?'#94a3b8':tx.type==='in'?'#059669':'#dc2626',textAlign:'right',borderBottom:'1px solid #f1f5f9',textDecoration:isCancelledTx?'line-through':''}},
+                  (tx.type==='in'?'+':'-')+fmtNum(tx.sqm,3)
+                ),
+                h('td',{style:{padding:'6px 10px',color:'#64748b',borderBottom:'1px solid #f1f5f9'}},tx.lot||'-'),
+                h('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f1f5f9',fontSize:'11px'}},
+                  isCancelledTx
+                    ? h('span',{style:{color:'#dc2626',fontWeight:500}},'ยกเลิก')
+                    : tx.type==='out'&&tx.project
+                      ? h('span',{style:{color:'#0ea5e9',fontWeight:500}},'→ '+tx.project)
+                      : h('span',{style:{color:'#94a3b8'}},'-')
+                )
+              );
+            }))
           )
         )
       ):h('div',{style:{textAlign:'center',color:'#94a3b8',fontSize:'12px',padding:'10px',background:'#f8fafc',borderRadius:'6px'}},'ยังไม่มีประวัติการเคลื่อนไหวของสินค้านี้')
