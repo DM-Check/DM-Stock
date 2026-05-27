@@ -216,7 +216,7 @@
 
 <script>
 // ===== CONFIG =====
-const API_URL = "https://script.google.com/macros/s/AKfycby6sFDwOab4HonWFX19WxAskVeqSbd8aPpVFgu8ZqtXG6JJG2yd6D4nIYfK3hVfWiERbg/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxf_yi_bqmFdxMqnkkQ-HX-s8YU-GOxsB6K3AHiRBTrZdhmaMIw8u8DSF_HkOwUPlOzww/exec";
 const SESSION_KEY = 'dm_session_v1';
 const SESSION_DAYS = 30;
 
@@ -3510,7 +3510,9 @@ function AddDOItemModal() {
 
   // สินค้าที่จอง/จ่าย ที่ยังไม่ออกใบส่งของ
   const reservedItems = reservations.filter(r=>r.status==='จอง' && !String(r.doNo||'').trim());
-  const recentOut = transactions.filter(t=>t.type==='out'&&!t.cancelled&&!String(t.doNo||'').trim());
+  // จ่ายออก: ต้องเป็นรายการหลังวันที่ 20/5/2026 และยังไม่ออกใบส่งของ
+  const DO_CUTOFF_DATE = new Date('2026-05-20T00:00:00');
+  const recentOut = transactions.filter(t=>t.type==='out'&&!t.cancelled&&!String(t.doNo||'').trim()&&new Date(t.date)>DO_CUTOFF_DATE);
 
   let selProduct2 = null;
   let selSource = '';
@@ -3582,7 +3584,6 @@ function AddDOItemModal() {
     tabBar.innerHTML='';
     tabBar.appendChild(makeTab('reservation','🔖 จากการจอง ('+reservedItems.length+')'));
     tabBar.appendChild(makeTab('out','⬆ จ่ายแล้วรอออกใบ ('+recentOut.length+')'));
-    tabBar.appendChild(makeTab('search','🔍 ค้นหาสินค้า'));
 
     tabContent.innerHTML='';
     if(doItemTab==='reservation'){
@@ -3628,27 +3629,6 @@ function AddDOItemModal() {
           tabContent.appendChild(row);
         });
       }
-    } else {
-      // ค้นหาสินค้า
-      const searchInp3 = h('input',{className:'input',placeholder:'ค้นหาชื่อหรือรหัสสินค้า...',style:{marginBottom:'8px'}});
-      const list3 = h('div',{style:{maxHeight:'200px',overflowY:'auto'}});
-      function renderList3(q=''){
-        list3.innerHTML='';
-        products.filter(p=>!p.discontinued&&(p.name.toLowerCase().includes(q.toLowerCase())||(p.code||'').toLowerCase().includes(q.toLowerCase()))).slice(0,20).forEach(p=>{
-          const row=h('div',{style:{padding:'8px 12px',cursor:'pointer',borderBottom:'1px solid #f1f5f9',display:'flex',justifyContent:'space-between'}},
-            h('div',{style:{fontWeight:500,fontSize:'13px'}},p.name),
-            h('span',{style:{fontSize:'11px',color:'#64748b',fontFamily:'monospace'}},p.code||p.id)
-          );
-          row.addEventListener('mouseenter',()=>row.style.background='#f8fafc');
-          row.addEventListener('mouseleave',()=>row.style.background='');
-          row.addEventListener('click',()=>selectProduct2(p,'',0,''));
-          list3.appendChild(row);
-        });
-      }
-      searchInp3.addEventListener('input',()=>renderList3(searchInp3.value));
-      renderList3('');
-      tabContent.appendChild(searchInp3);
-      tabContent.appendChild(list3);
     }
   }
 
