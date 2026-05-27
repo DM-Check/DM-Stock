@@ -216,7 +216,7 @@
 
 <script>
 // ===== CONFIG =====
-const API_URL = "https://script.google.com/macros/s/AKfycbx9Vo3jvqv1Q5p8Xa663B3Jy0WHC2Ya4DrAl7DzhV7WsjJ96_aCb1lLOXnlPayMju1W1Q/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbz0PFFZBoHgnwHQN44Lx8Sv7EWf2CLwo2KzatL403I6kFQ9BCbks_gkD79Kmu4DL_qUtg/exec";
 const SESSION_KEY = 'dm_session_v1';
 const SESSION_DAYS = 30;
 
@@ -1916,81 +1916,334 @@ function DetailModal() {
 function LoginPage() {
   const wrap = h('div',{style:{minHeight:'100vh',background:'linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)',display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'}});
 
-  const card = h('div',{style:{background:'white',borderRadius:'16px',padding:'36px',width:'100%',maxWidth:'380px',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}});
+  const card = h('div',{style:{background:'white',borderRadius:'16px',padding:'28px',width:'100%',maxWidth:'380px',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}});
 
   // Logo
-  card.appendChild(h('div',{style:{textAlign:'center',marginBottom:'28px'}},
-    h('div',{style:{width:'56px',height:'56px',background:'linear-gradient(135deg,#0ea5e9,#38bdf8)',borderRadius:'14px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'24px',margin:'0 auto 12px'}},'▦'),
+  card.appendChild(h('div',{style:{textAlign:'center',marginBottom:'20px'}},
+    h('div',{style:{width:'56px',height:'56px',background:'linear-gradient(135deg,#0ea5e9,#38bdf8)',borderRadius:'14px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'24px',margin:'0 auto 12px',color:'white'}},'▦'),
     h('div',{style:{fontWeight:700,fontSize:'20px',color:'#0f172a'}},'DM Stock Control'),
-    h('div',{style:{color:'#64748b',fontSize:'13px',marginTop:'3px'}},'กรุณาล็อกอินเพื่อเข้าใช้งาน')
+    h('div',{id:'subtitle',style:{color:'#64748b',fontSize:'13px',marginTop:'3px'}},'กรุณาล็อกอินเพื่อเข้าใช้งาน')
   ));
 
   const errMsg = h('div',{style:{background:'#fee2e2',color:'#991b1b',borderRadius:'8px',padding:'9px 12px',fontSize:'13px',marginBottom:'14px',display:'none'}});
   card.appendChild(errMsg);
 
-  // Name dropdown
-  const nameWrap = h('div',{style:{marginBottom:'14px'}});
-  nameWrap.appendChild(h('label',{style:{fontSize:'12px',fontWeight:600,color:'#374151',display:'block',marginBottom:'5px'}},'ชื่อผู้ใช้'));
-  const selName = h('select',{className:'input',style:{cursor:'pointer'}});
-  const defOpt = document.createElement('option');
-  defOpt.value = ''; defOpt.textContent = '— เลือกชื่อ —';
-  selName.appendChild(defOpt);
-  userNames.forEach(n => {
-    const opt = document.createElement('option');
-    opt.value = n; opt.textContent = n;
-    selName.appendChild(opt);
-  });
-  nameWrap.appendChild(selName);
-  card.appendChild(nameWrap);
+  // ค่าจาก localStorage
+  const lastUser = localStorage.getItem('dm_last_user') || '';
+  // โหมด: 'pin' = ใส่ PIN ของ lastUser, 'password' = login ด้วย password (เปลี่ยน user)
+  let mode = lastUser ? 'pin' : 'password';
 
-  // Password
-  const pwWrap = h('div',{style:{marginBottom:'20px'}});
-  pwWrap.appendChild(h('label',{style:{fontSize:'12px',fontWeight:600,color:'#374151',display:'block',marginBottom:'5px'}},'รหัสผ่าน'));
-  const pwRow = h('div',{style:{position:'relative'}});
-  const inpPw = h('input',{type:'password',className:'input',placeholder:'••••••••',style:{paddingRight:'44px'}});
-  const toggleBtn = h('button',{type:'button',style:{position:'absolute',right:'10px',top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:'16px',color:'#94a3b8',padding:'0',lineHeight:'1'}},'👁');
-  let pwVisible = false;
-  toggleBtn.addEventListener('click',()=>{
-    pwVisible = !pwVisible;
-    inpPw.type = pwVisible ? 'text' : 'password';
-    toggleBtn.textContent = pwVisible ? '🙈' : '👁';
-  });
-  pwRow.appendChild(inpPw);
-  pwRow.appendChild(toggleBtn);
-  pwWrap.appendChild(pwRow);
-  card.appendChild(pwWrap);
+  const body = h('div',{});
+  card.appendChild(body);
 
-  const loginBtn = h('button',{className:'btn btn-primary',style:{width:'100%',justifyContent:'center',padding:'11px',fontSize:'14px'}},'เข้าสู่ระบบ');
+  // ===== สร้าง views =====
+  function showError(msg) {
+    errMsg.textContent = msg;
+    errMsg.style.display = 'block';
+  }
+  function clearError() { errMsg.style.display = 'none'; }
 
-  async function doLogin() {
-    const name = selName.value.trim();
-    const pw = inpPw.value.trim();
-    if (!name) { errMsg.textContent='กรุณาเลือกชื่อผู้ใช้'; errMsg.style.display='block'; return; }
-    if (!pw) { errMsg.textContent='กรุณากรอกรหัสผ่าน'; errMsg.style.display='block'; return; }
-    loginBtn.disabled = true; loginBtn.textContent = '⏳ กำลังตรวจสอบ...';
-    const result = await apiLogin(name, pw);
-    if (result.success) {
-      currentUser = result.user;
-      ui.view = 'dashboard'; // เริ่มที่ dashboard เสมอ
-      saveSession(currentUser);
-      showToast('ยินดีต้อนรับ '+currentUser.name+' 👋');
-      await fetchProducts();
-      fetchTransactions(); fetchLots(); fetchProjects(); fetchReservations(); fetchDeliveryOrders();
-      fetchLastRead(); // โหลด lastRead หลัง login
-      render();
-    } else {
-      errMsg.textContent = result.error || 'ล็อกอินไม่สำเร็จ';
-      errMsg.style.display = 'block';
-      loginBtn.disabled = false; loginBtn.textContent = 'เข้าสู่ระบบ';
-      inpPw.value = '';
+  // PIN keypad
+  function buildPinView(username) {
+    body.innerHTML = '';
+    const subtitle = card.querySelector('#subtitle');
+    if (subtitle) subtitle.textContent = 'ใส่ PIN ของ ' + username;
+
+    let pinValue = '';
+    const dots = h('div',{style:{display:'flex',justifyContent:'center',gap:'12px',margin:'18px 0 22px'}});
+    function renderDots() {
+      dots.innerHTML = '';
+      for (let i = 0; i < 6; i++) {
+        const filled = i < pinValue.length;
+        dots.appendChild(h('div',{style:{width:'14px',height:'14px',borderRadius:'50%',background:filled?'#0ea5e9':'#e2e8f0',transition:'all .15s'}}));
+      }
+    }
+    renderDots();
+    body.appendChild(dots);
+
+    async function submitPin() {
+      if (pinValue.length !== 6) return;
+      clearError();
+      try {
+        const url = API_URL + '?' + new URLSearchParams({
+          action: 'loginWithPin',
+          username: username,
+          pin: pinValue
+        });
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.success) {
+          currentUser = data.user;
+          ui.view = 'dashboard';
+          saveSession(currentUser);
+          localStorage.setItem('dm_last_user', currentUser.name);
+          showToast('ยินดีต้อนรับ ' + currentUser.name + ' 👋');
+          await fetchProducts();
+          fetchTransactions(); fetchLots(); fetchProjects(); fetchReservations(); fetchDeliveryOrders();
+          fetchLastRead();
+          render();
+        } else {
+          if (data.needSetup) {
+            mode = 'password';
+            buildPasswordView(username, true);
+            showError('ยังไม่ได้ตั้ง PIN กรุณาใส่ password เพื่อตั้ง PIN');
+          } else if (data.locked) {
+            showError(data.error);
+            pinValue = '';
+            renderDots();
+          } else {
+            showError(data.error || 'PIN ไม่ถูกต้อง');
+            pinValue = '';
+            renderDots();
+          }
+        }
+      } catch(e) {
+        showError('เกิดข้อผิดพลาด: ' + e.message);
+      }
+    }
+
+    // Keypad
+    const grid = h('div',{style:{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'10px',marginBottom:'14px'}});
+    const keys = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+    keys.forEach(k => {
+      if (!k) {
+        grid.appendChild(h('div',{}));
+        return;
+      }
+      const btn = h('button',{style:{padding:'14px 0',fontSize:'18px',fontWeight:600,background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:'10px',cursor:'pointer',transition:'all .15s'}}, k);
+      btn.addEventListener('mouseenter',()=>btn.style.background='#e0f2fe');
+      btn.addEventListener('mouseleave',()=>btn.style.background='#f8fafc');
+      btn.addEventListener('click', () => {
+        clearError();
+        if (k === '⌫') {
+          pinValue = pinValue.slice(0,-1);
+        } else if (pinValue.length < 6) {
+          pinValue += k;
+        }
+        renderDots();
+        if (pinValue.length === 6) {
+          setTimeout(submitPin, 100);
+        }
+      });
+      grid.appendChild(btn);
+    });
+    body.appendChild(grid);
+
+    // Switch to password mode
+    body.appendChild(h('div',{style:{textAlign:'center',marginTop:'10px'}},
+      h('button',{style:{background:'none',border:'none',color:'#0ea5e9',fontSize:'12px',cursor:'pointer',textDecoration:'underline',padding:'4px'},
+        onClick:()=>{mode='password';localStorage.removeItem('dm_last_user');buildPasswordView('',false);}},
+        '🔄 เปลี่ยนผู้ใช้ / ลืม PIN'
+      )
+    ));
+  }
+
+  // Username + Password view
+  function buildPasswordView(prefillUser, forSetup) {
+    body.innerHTML = '';
+    const subtitle = card.querySelector('#subtitle');
+    if (subtitle) subtitle.textContent = forSetup ? 'ใส่ password เพื่อตั้ง PIN' : 'กรุณาล็อกอินเพื่อเข้าใช้งาน';
+
+    // Name dropdown
+    const nameWrap = h('div',{style:{marginBottom:'14px'}});
+    nameWrap.appendChild(h('label',{style:{fontSize:'12px',fontWeight:600,color:'#374151',display:'block',marginBottom:'5px'}},'ชื่อผู้ใช้'));
+    const selName = h('select',{className:'input',style:{cursor:'pointer'}});
+    const defOpt = document.createElement('option');
+    defOpt.value = ''; defOpt.textContent = '— เลือกชื่อ —';
+    selName.appendChild(defOpt);
+    userNames.forEach(n => {
+      const opt = document.createElement('option');
+      opt.value = n; opt.textContent = n;
+      if (n === prefillUser) opt.selected = true;
+      selName.appendChild(opt);
+    });
+    nameWrap.appendChild(selName);
+    body.appendChild(nameWrap);
+
+    // Password
+    const pwWrap = h('div',{style:{marginBottom:'18px'}});
+    pwWrap.appendChild(h('label',{style:{fontSize:'12px',fontWeight:600,color:'#374151',display:'block',marginBottom:'5px'}},'รหัสผ่าน'));
+    const pwRow = h('div',{style:{position:'relative'}});
+    const inpPw = h('input',{type:'password',className:'input',placeholder:'••••••••',style:{paddingRight:'44px'}});
+    const toggleBtn = h('button',{type:'button',style:{position:'absolute',right:'10px',top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:'16px',color:'#94a3b8',padding:'0',lineHeight:'1'}},'👁');
+    let pwVisible = false;
+    toggleBtn.addEventListener('click',()=>{
+      pwVisible = !pwVisible;
+      inpPw.type = pwVisible ? 'text' : 'password';
+      toggleBtn.textContent = pwVisible ? '🙈' : '👁';
+    });
+    pwRow.appendChild(inpPw);
+    pwRow.appendChild(toggleBtn);
+    pwWrap.appendChild(pwRow);
+    body.appendChild(pwWrap);
+
+    const loginBtn = h('button',{className:'btn btn-primary',style:{width:'100%',justifyContent:'center',padding:'11px',fontSize:'14px'}},'เข้าสู่ระบบ');
+
+    async function doLogin() {
+      const name = selName.value.trim();
+      const pw = inpPw.value.trim();
+      if (!name) { showError('กรุณาเลือกชื่อผู้ใช้'); return; }
+      if (!pw) { showError('กรุณากรอกรหัสผ่าน'); return; }
+      clearError();
+      loginBtn.disabled = true; loginBtn.textContent = '⏳ กำลังตรวจสอบ...';
+
+      // เช็คก่อนว่ามี PIN หรือยัง
+      try {
+        const statusRes = await fetch(API_URL + '?' + new URLSearchParams({action:'getUserStatus',username:name}));
+        const statusData = await statusRes.json();
+
+        if (statusData.success && statusData.locked) {
+          showError('บัญชีถูกล็อค กรุณาติดต่อ Admin');
+          loginBtn.disabled = false; loginBtn.textContent = 'เข้าสู่ระบบ';
+          inpPw.value = '';
+          return;
+        }
+
+        // ตรวจ password ปกติก่อน
+        const result = await apiLogin(name, pw);
+        if (!result.success) {
+          showError(result.error || 'ล็อกอินไม่สำเร็จ');
+          loginBtn.disabled = false; loginBtn.textContent = 'เข้าสู่ระบบ';
+          inpPw.value = '';
+          return;
+        }
+
+        // ถ้ายังไม่มี PIN → ไปหน้า setup PIN
+        if (statusData.success && !statusData.hasPin) {
+          buildSetupPinView(name, pw, result.user);
+          return;
+        }
+
+        // มี PIN แล้ว → login ปกติ
+        currentUser = result.user;
+        ui.view = 'dashboard';
+        saveSession(currentUser);
+        localStorage.setItem('dm_last_user', currentUser.name);
+        showToast('ยินดีต้อนรับ ' + currentUser.name + ' 👋');
+        await fetchProducts();
+        fetchTransactions(); fetchLots(); fetchProjects(); fetchReservations(); fetchDeliveryOrders();
+        fetchLastRead();
+        render();
+      } catch(e) {
+        showError('เกิดข้อผิดพลาด: ' + e.message);
+        loginBtn.disabled = false; loginBtn.textContent = 'เข้าสู่ระบบ';
+      }
+    }
+
+    loginBtn.addEventListener('click', doLogin);
+    inpPw.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+    body.appendChild(loginBtn);
+
+    // Back to PIN mode
+    if (lastUser && !forSetup) {
+      body.appendChild(h('div',{style:{textAlign:'center',marginTop:'12px'}},
+        h('button',{style:{background:'none',border:'none',color:'#0ea5e9',fontSize:'12px',cursor:'pointer',textDecoration:'underline',padding:'4px'},
+          onClick:()=>{mode='pin';buildPinView(lastUser);}},'← กลับไปใช้ PIN ของ ' + lastUser
+        )
+      ));
     }
   }
 
-  loginBtn.addEventListener('click', doLogin);
-  inpPw.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
-  card.appendChild(loginBtn);
+  // Setup PIN view
+  function buildSetupPinView(username, password, user) {
+    body.innerHTML = '';
+    const subtitle = card.querySelector('#subtitle');
+    if (subtitle) subtitle.textContent = 'ตั้งค่า PIN 6 หลักสำหรับ ' + username;
 
-  card.appendChild(h('div',{style:{textAlign:'center',marginTop:'16px',fontSize:'12px',color:'#94a3b8'}},'หากลืมรหัสผ่าน กรุณาติดต่อ Admin'));
+    let step = 1; // 1 = ใส่ครั้งแรก, 2 = ยืนยัน
+    let firstPin = '';
+    let pinValue = '';
+
+    const stepLabel = h('div',{style:{textAlign:'center',fontSize:'13px',color:'#64748b',marginBottom:'10px'}},'ขั้นที่ 1: ตั้ง PIN ใหม่');
+    body.appendChild(stepLabel);
+
+    const dots = h('div',{style:{display:'flex',justifyContent:'center',gap:'12px',margin:'14px 0 18px'}});
+    function renderDots() {
+      dots.innerHTML = '';
+      for (let i = 0; i < 6; i++) {
+        const filled = i < pinValue.length;
+        dots.appendChild(h('div',{style:{width:'14px',height:'14px',borderRadius:'50%',background:filled?'#0ea5e9':'#e2e8f0',transition:'all .15s'}}));
+      }
+    }
+    renderDots();
+    body.appendChild(dots);
+
+    async function finishSetup() {
+      try {
+        const url = API_URL + '?' + new URLSearchParams({
+          action: 'setupPin',
+          username: username,
+          password: password,
+          pin: firstPin
+        });
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.success) {
+          currentUser = user;
+          ui.view = 'dashboard';
+          saveSession(currentUser);
+          localStorage.setItem('dm_last_user', currentUser.name);
+          showToast('ตั้ง PIN สำเร็จ ยินดีต้อนรับ ' + currentUser.name + ' 👋');
+          await fetchProducts();
+          fetchTransactions(); fetchLots(); fetchProjects(); fetchReservations(); fetchDeliveryOrders();
+          fetchLastRead();
+          render();
+        } else {
+          showError(data.error || 'ตั้ง PIN ไม่สำเร็จ');
+        }
+      } catch(e) {
+        showError('เกิดข้อผิดพลาด: ' + e.message);
+      }
+    }
+
+    const grid = h('div',{style:{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'10px',marginBottom:'10px'}});
+    const keys = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+    keys.forEach(k => {
+      if (!k) { grid.appendChild(h('div',{})); return; }
+      const btn = h('button',{style:{padding:'14px 0',fontSize:'18px',fontWeight:600,background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:'10px',cursor:'pointer'}}, k);
+      btn.addEventListener('mouseenter',()=>btn.style.background='#e0f2fe');
+      btn.addEventListener('mouseleave',()=>btn.style.background='#f8fafc');
+      btn.addEventListener('click', () => {
+        clearError();
+        if (k === '⌫') {
+          pinValue = pinValue.slice(0,-1);
+        } else if (pinValue.length < 6) {
+          pinValue += k;
+        }
+        renderDots();
+        if (pinValue.length === 6) {
+          if (step === 1) {
+            firstPin = pinValue;
+            pinValue = '';
+            step = 2;
+            stepLabel.textContent = 'ขั้นที่ 2: ยืนยัน PIN อีกครั้ง';
+            setTimeout(renderDots, 100);
+          } else {
+            if (pinValue === firstPin) {
+              setTimeout(finishSetup, 100);
+            } else {
+              showError('PIN ไม่ตรงกัน กรุณาลองใหม่');
+              step = 1;
+              firstPin = '';
+              pinValue = '';
+              stepLabel.textContent = 'ขั้นที่ 1: ตั้ง PIN ใหม่';
+              renderDots();
+            }
+          }
+        }
+      });
+      grid.appendChild(btn);
+    });
+    body.appendChild(grid);
+  }
+
+  // เริ่มต้น
+  if (mode === 'pin') {
+    buildPinView(lastUser);
+  } else {
+    buildPasswordView('', false);
+  }
+
   wrap.appendChild(card);
   return wrap;
 }
