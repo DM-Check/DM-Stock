@@ -1882,7 +1882,7 @@ function DetailModal() {
                 h('td',{style:{padding:'6px 10px',color:'#64748b',borderBottom:'1px solid #f1f5f9'}},tx.lot||'-'),
                 h('td',{style:{padding:'6px 10px',borderBottom:'1px solid #f1f5f9',fontSize:'11px'}},
                   isCancelledTx
-                    ? h('span',{style:{color:'#dc2626',fontWeight:500}},'ยกเลิก')
+                    ? h('span',{style:{color:'#dc2626',fontWeight:500}},'ยกเลิก'+(tx.cancelBy?' โดย '+tx.cancelBy:''))
                     : tx.type==='out'&&tx.project
                       ? h('span',{style:{color:'#0ea5e9',fontWeight:500}},'→ '+tx.project)
                       : h('span',{style:{color:'#94a3b8'}},'-')
