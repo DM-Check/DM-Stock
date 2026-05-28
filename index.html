@@ -3814,16 +3814,25 @@ async function editTransactionProject(tx) {
 
 function generateDONumber() {
   const now = new Date();
-  const buddhistYear = now.getFullYear() - 1957; // พ.ศ. - 543 + 500 = ค.ศ. + 43 -> แต่โจทย์บอกปี 2605 = 26, เดือน 05
-  // format: YYMM + seq
-  const yy = String(buddhistYear).slice(-2); // เช่น 2568 -> 68
+  const buddhistYear = now.getFullYear() + 543; // ค.ศ. -> พ.ศ.
+  // format: YYMM + seq (เช่น 6905001 = พ.ศ.2569 เดือน5 ใบที่1)
+  const yy = String(buddhistYear).slice(-2); // เช่น 2569 -> 69
   const mm = String(now.getMonth()+1).padStart(2,'0');
-  const existing = (JSON.parse(localStorage.getItem('dm_do_seq')||'{}'));
-  const key = yy+mm;
-  const seq = (existing[key]||0)+1;
-  existing[key]=seq;
-  localStorage.setItem('dm_do_seq', JSON.stringify(existing));
-  return yy+mm+String(seq).padStart(3,'0');
+  const prefix = yy+mm; // เช่น "6905"
+
+  // นับจากใบจริงใน Sheet (deliveryOrders) แทน localStorage
+  // หาเลขใบสูงสุดที่ขึ้นต้นด้วย prefix เดียวกัน (เดือน/ปีเดียวกัน)
+  let maxSeq = 0;
+  (deliveryOrders||[]).forEach(o=>{
+    const no = String(o.doNo||'').trim();
+    if(no.length===7 && no.slice(0,4)===prefix){
+      const s = parseInt(no.slice(4),10);
+      if(!isNaN(s) && s>maxSeq) maxSeq = s;
+    }
+  });
+
+  const seq = maxSeq + 1; // ต่อจากใบล่าสุดของเดือนนี้ (เดือนใหม่เริ่ม 1)
+  return prefix+String(seq).padStart(3,'0');
 }
 
 function DOViewModal() {
