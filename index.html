@@ -905,12 +905,17 @@ function Sidebar() {
           h('div',{style:{color:'white',fontSize:'13px',fontWeight:600}},currentUser.name),
           roleBadge?h('span',{style:{background:roleBadge.bg,color:roleBadge.txt,borderRadius:'4px',padding:'1px 6px',fontSize:'10px',fontWeight:600,marginTop:'3px',display:'inline-block'}},roleBadge.label):null
         ),
-        h('button',{className:'btn',style:{background:'rgba(239,68,68,.15)',color:'#fca5a5',padding:'4px 10px',fontSize:'11px'},
-          onClick:()=>{
-            if(confirm('ออกจากระบบ?')){
-              clearSession(); currentUser=null; render();
-            }
-          }},'ออก')
+        h('div',{style:{display:'flex',gap:'4px'}},
+          h('button',{className:'btn',style:{background:'rgba(14,165,233,.15)',color:'#7dd3fc',padding:'4px 8px',fontSize:'11px'},
+            title:'ตั้งค่าของฉัน',
+            onClick:()=>{ui.modal='myBiometric';render();}},'⚙️'),
+          h('button',{className:'btn',style:{background:'rgba(239,68,68,.15)',color:'#fca5a5',padding:'4px 10px',fontSize:'11px'},
+            onClick:()=>{
+              if(confirm('ออกจากระบบ?')){
+                clearSession(); currentUser=null; render();
+              }
+            }},'ออก')
+        )
       ),
       h('div',{style:{display:'flex',alignItems:'center',gap:'5px',fontSize:'11px',color:'#64748b'}},
         h('span',{style:{width:'6px',height:'6px',borderRadius:'50%',background:lastSync?'#22c55e':'#f59e0b',display:'inline-block'}}),
@@ -2223,9 +2228,8 @@ function LoginPage() {
             tidBtn.textContent = '🔐 เข้าด้วย Touch ID / Face ID';
           }
         } catch(e) {
-          if (e.message && e.message.indexOf('ยังไม่มี') === -1) {
-            showError('Touch ID ล้มเหลว: ' + (e.message || e));
-          }
+          console.error('Touch ID login error:', e);
+          showError('Touch ID ล้มเหลว: ' + (e.message || e));
           tidBtn.disabled = false;
           tidBtn.textContent = '🔐 เข้าด้วย Touch ID / Face ID';
         }
@@ -4493,10 +4497,11 @@ function DiscontinuedPage() {
 }
 
 // ===== ADMIN PAGE =====
-// ===== Touch ID / Face ID Settings Card =====
+// ===== Touch ID / Face ID Settings Modal (เปิดได้ทุก role) =====
 let myBiometricDevices = null;
 
-function buildMyBiometricCard() {
+function MyBiometricModal() {
+  if (!currentUser) return null;
   const username = currentUser.name;
 
   // โหลด devices ถ้ายังไม่มี
@@ -4508,91 +4513,114 @@ function buildMyBiometricCard() {
     });
   }
 
-  const card = h('div',{className:'card',style:{overflow:'hidden'}});
-  card.appendChild(h('div',{style:{padding:'12px 16px',borderBottom:'1px solid #e2e8f0',display:'flex',justifyContent:'space-between',alignItems:'center',background:'linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%)'}},
-    h('div',{},
-      h('div',{style:{fontWeight:700,fontSize:'14px',color:'#0c4a6e'}},'🔐 Touch ID / Face ID ของฉัน'),
-      h('div',{style:{fontSize:'11px',color:'#0369a1',marginTop:'2px'}},'login ได้รวดเร็วด้วยลายนิ้วมือ/ใบหน้า')
-    )
+  const overlay = h('div',{className:'modal-overlay',onClick:e=>{if(e.target===overlay){ui.modal=null;myBiometricDevices=null;render();}}});
+  const modal = h('div',{className:'modal',style:{padding:'0',maxWidth:'480px',maxHeight:'90vh',display:'flex',flexDirection:'column'}});
+
+  // Header
+  const header = h('div',{style:{padding:'16px 20px',borderBottom:'1px solid #e2e8f0',background:'linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%)',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}});
+  header.appendChild(h('div',{},
+    h('div',{style:{fontWeight:700,fontSize:'15px',color:'#0c4a6e'}},'⚙️ ตั้งค่าของฉัน'),
+    h('div',{style:{fontSize:'11px',color:'#0369a1',marginTop:'2px'}},'จัดการ Touch ID / Face ID และ PIN')
+  ));
+  header.appendChild(h('button',{className:'btn btn-ghost',style:{padding:'5px 9px',fontSize:'16px'},
+    onClick:()=>{ui.modal=null;myBiometricDevices=null;render();}},'✕'));
+  modal.appendChild(header);
+
+  // Body (scrollable)
+  const body = h('div',{style:{padding:'18px 20px',overflowY:'auto',flex:1}});
+
+  // ผู้ใช้
+  body.appendChild(h('div',{style:{padding:'10px 12px',background:'#f8fafc',borderRadius:'8px',marginBottom:'16px',border:'1px solid #e2e8f0'}},
+    h('div',{style:{fontSize:'11px',color:'#64748b',marginBottom:'2px'}},'ผู้ใช้'),
+    h('div',{style:{fontWeight:600,fontSize:'14px'}},username)
   ));
 
-  const body = h('div',{style:{padding:'14px 16px'}});
+  // Section: Touch ID / Face ID
+  if (isWebAuthnSupported()) {
+    body.appendChild(h('div',{style:{fontSize:'13px',fontWeight:700,color:'#0f172a',marginBottom:'10px',display:'flex',alignItems:'center',gap:'6px'}},
+      h('span',{},'🔐'),
+      h('span',{},'Touch ID / Face ID')
+    ));
 
-  if (myBiometricDevices.length === 0) {
-    body.appendChild(h('div',{style:{textAlign:'center',padding:'14px 0',color:'#64748b',fontSize:'12px',marginBottom:'10px'}},
-      'ยังไม่ได้ลงทะเบียน device ใดๆ'
-    ));
-  } else {
-    body.appendChild(h('div',{style:{fontSize:'12px',color:'#475569',marginBottom:'8px',fontWeight:600}},
-      'Device ที่ลงทะเบียนแล้ว (' + myBiometricDevices.length + ')'
-    ));
-    myBiometricDevices.forEach(d => {
-      const row = h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 12px',background:'#f8fafc',borderRadius:'8px',marginBottom:'6px',border:'1px solid #e2e8f0'}});
-      const icon = d.deviceName.includes('iPhone')?'📱':d.deviceName.includes('iPad')?'📱':d.deviceName.includes('Mac')?'💻':d.deviceName.includes('Android')?'📱':d.deviceName.includes('Windows')?'🖥️':'🔐';
-      const dateStr = d.registeredAt ? new Date(d.registeredAt).toLocaleDateString('th-TH',{year:'numeric',month:'short',day:'numeric'}) : '';
-      row.appendChild(h('div',{},
-        h('div',{style:{fontWeight:600,fontSize:'13px'}}, icon + ' ' + d.deviceName),
-        dateStr ? h('div',{style:{fontSize:'11px',color:'#94a3b8',marginTop:'2px'}}, 'ลงทะเบียน ' + dateStr) : null
+    if (myBiometricDevices.length === 0) {
+      body.appendChild(h('div',{style:{textAlign:'center',padding:'14px 0',color:'#64748b',fontSize:'12px',marginBottom:'10px',background:'#f8fafc',borderRadius:'8px'}},
+        'ยังไม่ได้ลงทะเบียน device ใดๆ'
       ));
-      const rmBtn = h('button',{className:'btn btn-outline',style:{fontSize:'11px',padding:'4px 10px',color:'#dc2626',borderColor:'#fecaca'}},'ลบ');
-      rmBtn.addEventListener('click', async () => {
-        if (!confirm('ลบ ' + d.deviceName + ' ออกจากระบบ Touch ID?')) return;
-        rmBtn.disabled = true; rmBtn.textContent = '⏳';
-        try {
-          const data = await removeWebAuthnDevice(username, d.id);
-          if (data.success) {
-            showToast('✓ ลบ device แล้ว');
-            myBiometricDevices = null; // reload
-            render();
-          } else {
-            showToast('❌ ' + (data.error || 'ลบไม่สำเร็จ'),'err');
+    } else {
+      body.appendChild(h('div',{style:{fontSize:'12px',color:'#475569',marginBottom:'8px'}},
+        'Device ที่ลงทะเบียนแล้ว (' + myBiometricDevices.length + ')'
+      ));
+      myBiometricDevices.forEach(d => {
+        const row = h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 12px',background:'#f8fafc',borderRadius:'8px',marginBottom:'6px',border:'1px solid #e2e8f0'}});
+        const icon = d.deviceName.includes('iPhone')?'📱':d.deviceName.includes('iPad')?'📱':d.deviceName.includes('Mac')?'💻':d.deviceName.includes('Android')?'📱':d.deviceName.includes('Windows')?'🖥️':'🔐';
+        const dateStr = d.registeredAt ? new Date(d.registeredAt).toLocaleDateString('th-TH',{year:'numeric',month:'short',day:'numeric'}) : '';
+        row.appendChild(h('div',{},
+          h('div',{style:{fontWeight:600,fontSize:'13px'}}, icon + ' ' + d.deviceName),
+          dateStr ? h('div',{style:{fontSize:'11px',color:'#94a3b8',marginTop:'2px'}}, 'ลงทะเบียน ' + dateStr) : null
+        ));
+        const rmBtn = h('button',{className:'btn btn-outline',style:{fontSize:'11px',padding:'4px 10px',color:'#dc2626',borderColor:'#fecaca'}},'ลบ');
+        rmBtn.addEventListener('click', async () => {
+          if (!confirm('ลบ ' + d.deviceName + ' ออกจากระบบ Touch ID?')) return;
+          rmBtn.disabled = true; rmBtn.textContent = '⏳';
+          try {
+            const data = await removeWebAuthnDevice(username, d.id);
+            if (data.success) {
+              showToast('✓ ลบ device แล้ว');
+              myBiometricDevices = null;
+              render();
+            } else {
+              showToast('❌ ' + (data.error || 'ลบไม่สำเร็จ'),'err');
+              rmBtn.disabled = false; rmBtn.textContent = 'ลบ';
+            }
+          } catch(e) {
+            showToast('❌ ' + e.message,'err');
             rmBtn.disabled = false; rmBtn.textContent = 'ลบ';
           }
-        } catch(e) {
-          showToast('❌ ' + e.message,'err');
-          rmBtn.disabled = false; rmBtn.textContent = 'ลบ';
-        }
+        });
+        row.appendChild(rmBtn);
+        body.appendChild(row);
       });
-      row.appendChild(rmBtn);
-      body.appendChild(row);
-    });
-  }
+    }
 
-  // ปุ่มเพิ่ม device
-  const addBtn = h('button',{className:'btn btn-primary',style:{width:'100%',justifyContent:'center',padding:'10px',marginTop:'4px'}},
-    '➕ เพิ่ม Touch ID / Face ID สำหรับ device นี้');
-  addBtn.addEventListener('click', async () => {
-    addBtn.disabled = true; addBtn.textContent = '⏳ กรุณาสแกน...';
-    try {
-      const data = await registerWebAuthnDevice(username);
-      if (data.success) {
-        showToast('✓ ลงทะเบียน Touch ID สำเร็จ (' + data.totalDevices + ' devices)');
-        myBiometricDevices = null;
-        render();
-      } else {
-        showToast('❌ ' + (data.error || 'ลงทะเบียนไม่สำเร็จ'),'err');
+    // ปุ่มเพิ่ม device
+    const addBtn = h('button',{className:'btn btn-primary',style:{width:'100%',justifyContent:'center',padding:'10px',marginTop:'4px'}},
+      '➕ เพิ่ม Touch ID / Face ID สำหรับ device นี้');
+    addBtn.addEventListener('click', async () => {
+      addBtn.disabled = true; addBtn.textContent = '⏳ กรุณาสแกน...';
+      try {
+        const data = await registerWebAuthnDevice(username);
+        if (data.success) {
+          showToast('✓ ลงทะเบียน Touch ID สำเร็จ (' + data.totalDevices + ' devices)');
+          myBiometricDevices = null;
+          render();
+        } else {
+          showToast('❌ ' + (data.error || 'ลงทะเบียนไม่สำเร็จ'),'err');
+          addBtn.disabled = false;
+          addBtn.textContent = '➕ เพิ่ม Touch ID / Face ID สำหรับ device นี้';
+        }
+      } catch(e) {
+        const msg = e.message || String(e);
+        if (msg.indexOf('cancel') === -1 && msg.indexOf('aborted') === -1 && msg.indexOf('NotAllowedError') === -1) {
+          showToast('❌ ' + msg, 'err');
+        }
         addBtn.disabled = false;
         addBtn.textContent = '➕ เพิ่ม Touch ID / Face ID สำหรับ device นี้';
       }
-    } catch(e) {
-      // user cancel หรือ error
-      const msg = e.message || String(e);
-      if (msg.indexOf('cancel') === -1 && msg.indexOf('aborted') === -1) {
-        showToast('❌ ' + msg, 'err');
-      }
-      addBtn.disabled = false;
-      addBtn.textContent = '➕ เพิ่ม Touch ID / Face ID สำหรับ device นี้';
-    }
-  });
-  body.appendChild(addBtn);
+    });
+    body.appendChild(addBtn);
 
-  // หมายเหตุ
-  body.appendChild(h('div',{style:{marginTop:'10px',padding:'8px 10px',background:'#fffbeb',border:'1px solid #fde68a',borderRadius:'6px',fontSize:'11px',color:'#92400e'}},
-    '💡 Touch ID ผูกกับ device ที่ลงทะเบียน — เปลี่ยน browser/เครื่อง ต้องลงทะเบียนใหม่'
-  ));
+    body.appendChild(h('div',{style:{marginTop:'10px',padding:'8px 10px',background:'#fffbeb',border:'1px solid #fde68a',borderRadius:'6px',fontSize:'11px',color:'#92400e'}},
+      '💡 Touch ID ผูกกับ device ที่ลงทะเบียน — เปลี่ยน browser/เครื่อง ต้องลงทะเบียนใหม่'
+    ));
+  } else {
+    body.appendChild(h('div',{style:{padding:'14px',background:'#fef3c7',borderRadius:'8px',fontSize:'12px',color:'#92400e',textAlign:'center'}},
+      '⚠ Browser นี้ไม่รองรับ Touch ID / Face ID'
+    ));
+  }
 
-  card.appendChild(body);
-  return card;
+  modal.appendChild(body);
+  overlay.appendChild(modal);
+  return overlay;
 }
 
 function AdminPage() {
@@ -4635,9 +4663,6 @@ function AdminPage() {
         )
       )
     ),
-
-    // Touch ID / Face ID ของฉัน (admin)
-    isWebAuthnSupported() && currentUser ? buildMyBiometricCard() : null,
 
     // รายชื่อผู้ใช้
     h('div',{className:'card',style:{overflow:'hidden'}},
@@ -5512,6 +5537,7 @@ function render() {
   if(ui.modal==='createDO'){const m=CreateDOModal();if(m)app.appendChild(m);}
   else if(ui.modal==='addDOItem'){const m=AddDOItemModal();if(m)app.appendChild(m);}
   else if(ui.modal==='viewDO'){const m=DOViewModal();if(m)app.appendChild(m);}
+  else if(ui.modal==='myBiometric'){const m=MyBiometricModal();if(m)app.appendChild(m);}
   else if(ui.modal==='detail'){const m=DetailModal();if(m)app.appendChild(m);}
   else if(ui.modal==='uploadImage'){const m=UploadImageModal();if(m)app.appendChild(m);}
   else if(ui.modal==='editProduct'){const m=EditProductModal();if(m)app.appendChild(m);}
