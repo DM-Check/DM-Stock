@@ -218,7 +218,7 @@
 // ===== CONFIG =====
 const API_URL = "https://script.google.com/macros/s/AKfycbyo9YuUAawpP4bCWxKpqCCs1K4qkB_25b64QBX0BVHwGwyu14TYrRWHvyzbRXytHwvkLw/exec";
 const SESSION_KEY = 'dm_session_v1';
-const SESSION_DAYS = 30;
+const SESSION_HOURS = 10; // Auto-logout ทุก 10 ชั่วโมง
 
 // ===== AUTH =====
 let currentUser = null; // { name, email, role }
@@ -226,6 +226,7 @@ let userNames = [];     // รายชื่อสำหรับ dropdown
 let allUsers = [];      // เฉพาะ admin
 let myLastRead = null;  // timestamp ที่ตัวเองอ่านประวัติล่าสุด
 let unreadCount = 0;    // จำนวนรายการที่ยังไม่อ่าน
+let sessionCheckTimer = null; // Timer สำหรับ check session
 
 function loadSession() {
   try {
@@ -242,12 +243,51 @@ function loadSession() {
 
 function saveSession(user) {
   const expires = new Date();
-  expires.setDate(expires.getDate() + SESSION_DAYS);
+  expires.setHours(expires.getHours() + SESSION_HOURS);
   localStorage.setItem(SESSION_KEY, JSON.stringify({ user, expires }));
+  startSessionCheck();
 }
 
 function clearSession() {
   localStorage.removeItem(SESSION_KEY);
+  stopSessionCheck();
+}
+
+// ตรวจ session ทุก 1 นาที — ถ้าหมดอายุให้ logout
+function startSessionCheck() {
+  stopSessionCheck();
+  sessionCheckTimer = setInterval(() => {
+    if (!currentUser) { stopSessionCheck(); return; }
+    const s = localStorage.getItem(SESSION_KEY);
+    if (!s) {
+      forceLogout('Session หมดอายุ กรุณาเข้าสู่ระบบใหม่');
+      return;
+    }
+    try {
+      const { expires } = JSON.parse(s);
+      if (new Date() > new Date(expires)) {
+        forceLogout('Session หมดอายุ (10 ชั่วโมง) กรุณาเข้าสู่ระบบใหม่');
+      }
+    } catch(e) {
+      forceLogout('Session ผิดพลาด กรุณาเข้าสู่ระบบใหม่');
+    }
+  }, 60 * 1000); // ทุก 1 นาที
+}
+
+function stopSessionCheck() {
+  if (sessionCheckTimer) {
+    clearInterval(sessionCheckTimer);
+    sessionCheckTimer = null;
+  }
+}
+
+function forceLogout(reason) {
+  clearSession();
+  currentUser = null;
+  if (typeof showToast === 'function' && reason) {
+    showToast(reason, 'err');
+  }
+  if (typeof render === 'function') render();
 }
 
 function canEdit() { return currentUser && (currentUser.role === 'admin' || currentUser.role === 'poweruser'); }
@@ -5559,7 +5599,10 @@ function render() {
 
 // ===== INIT =====
 currentUser = loadSession();
-if (currentUser) ui.view = 'dashboard'; // เริ่มที่ dashboard เสมอ
+if (currentUser) {
+  ui.view = 'dashboard'; // เริ่มที่ dashboard เสมอ
+  startSessionCheck(); // เริ่มตรวจสอบ session ทุก 1 นาที
+}
 render();
 
 // โหลด usernames สำหรับ login dropdown
