@@ -2056,8 +2056,8 @@ function DetailModal() {
       h('div',{style:{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'8px',marginBottom:'14px'}},
         ...[
           ['คงเหลือ (ตร.ม)',fmtNum(stock,3),status==='out'?'#dc2626':status==='low'?'#d97706':'#059669'],
-          ['จองแล้ว',fmtNum(getReservedQty(p.id),2),'#d97706'],
-          ['ว่างจริง',fmtNum(getAvailableQty(p.id),2),'#2563eb']
+          ['จองแล้ว',fmtNum(getReservedQty(p.id),3),'#d97706'],
+          ['ว่างจริง',fmtNum(getAvailableQty(p.id),3),'#2563eb']
         ].map(([l,v,c])=>h('div',{style:{background:'white',border:'1px solid #e2e8f0',borderRadius:'8px',padding:'10px',textAlign:'center'}},
           h('div',{style:{fontWeight:700,fontSize:'17px',color:c,fontVariantNumeric:'tabular-nums'}},v),
           h('div',{style:{fontSize:'10px',color:'#94a3b8',marginTop:'3px',textTransform:'uppercase',letterSpacing:'.04em',fontWeight:600}},l)
