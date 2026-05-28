@@ -216,7 +216,7 @@
 
 <script>
 // ===== CONFIG =====
-const API_URL = "https://script.google.com/macros/s/AKfycbyo9YuUAawpP4bCWxKpqCCs1K4qkB_25b64QBX0BVHwGwyu14TYrRWHvyzbRXytHwvkLw/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbw72A6kBW5_d91XiE9tq9SxlAV70orf1c3CW4CCre8jbKzQ-7n3IeDJTIJo44OdNNAXFQ/exec";
 const SESSION_KEY = 'dm_session_v1';
 const SESSION_HOURS = 10; // Auto-logout ทุก 10 ชั่วโมง
 
@@ -224,6 +224,7 @@ const SESSION_HOURS = 10; // Auto-logout ทุก 10 ชั่วโมง
 let currentUser = null; // { name, email, role }
 let userNames = [];     // รายชื่อสำหรับ dropdown
 let allUsers = [];      // เฉพาะ admin
+let userSecurityMap = {}; // {username: {hasPin, locked, failedAttempts, deviceCount}}
 let myLastRead = null;  // timestamp ที่ตัวเองอ่านประวัติล่าสุด
 let unreadCount = 0;    // จำนวนรายการที่ยังไม่อ่าน
 let sessionCheckTimer = null; // Timer สำหรับ check session
@@ -359,10 +360,70 @@ async function fetchAllUsers() {
     const data = await res.json();
     if (data.success) {
       allUsers = data.users;
-      // ถ้าอยู่หน้า admin → render ใหม่เพื่อแสดงข้อมูล
+      // โหลด security info ของทุก user
+      fetchAllUsersSecurity();
       if (ui.view === 'admin') render();
     }
   } catch(e) {}
+}
+
+async function fetchAllUsersSecurity() {
+  if (!isAdmin()) return;
+  try {
+    // โหลดแบบ parallel
+    const promises = allUsers.map(async u => {
+      try {
+        const [statusRes, credRes] = await Promise.all([
+          fetch(API_URL + '?' + new URLSearchParams({action:'getUserStatus',username:u.name})),
+          fetch(API_URL + '?' + new URLSearchParams({action:'getWebAuthnCredentials',username:u.name}))
+        ]);
+        const statusData = await statusRes.json();
+        const credData = await credRes.json();
+        userSecurityMap[u.name] = {
+          hasPin: statusData.success ? !!statusData.hasPin : false,
+          locked: statusData.success ? !!statusData.locked : false,
+          failedAttempts: statusData.success ? (statusData.failedAttempts||0) : 0,
+          deviceCount: credData.success && credData.credentialIds ? credData.credentialIds.length : 0
+        };
+      } catch(e) {
+        userSecurityMap[u.name] = { hasPin:false, locked:false, failedAttempts:0, deviceCount:0 };
+      }
+    });
+    await Promise.all(promises);
+    if (ui.view === 'admin') render();
+  } catch(e) {}
+}
+
+async function unlockUser(targetName) {
+  // unlock = reset failedAttempts (ใช้ resetUserPin จะลบ PIN ด้วย — ไม่ต้องการแบบนั้น)
+  // วิธีง่ายสุด: เรียก resetUserPin ที่ทำทุกอย่างใหม่
+  // แต่อยาก unlock อย่างเดียว → ต้องใช้ function แยก
+  if (!confirm('ปลดล็อค ' + targetName + '?\n\n(จะ reset failed attempts counter ให้กลับเป็น 0 — PIN เดิมยังใช้ได้)')) return false;
+  const res = await fetch(API_URL + '?' + new URLSearchParams({
+    action: 'unlockUser',
+    targetUser: targetName,
+    adminUser: currentUser.name
+  }));
+  return await res.json();
+}
+
+async function resetUserPinCall(targetName) {
+  if (!confirm('รีเซ็ต PIN ของ ' + targetName + '?\n\nผู้ใช้จะต้องเข้าระบบด้วย username + password แล้วตั้ง PIN ใหม่')) return false;
+  const res = await fetch(API_URL + '?' + new URLSearchParams({
+    action: 'resetUserPin',
+    targetUser: targetName,
+    adminUser: currentUser.name
+  }));
+  return await res.json();
+}
+
+async function adminRemoveTouchId(targetName) {
+  if (!confirm('ลบ Touch ID / Face ID ทั้งหมดของ ' + targetName + '?\n\nผู้ใช้จะต้องลงทะเบียน device ใหม่')) return false;
+  const res = await fetch(API_URL + '?' + new URLSearchParams({
+    action: 'removeWebAuthn',
+    username: targetName
+  }));
+  return await res.json();
 }
 
 async function apiLogin(name, password) {
@@ -4704,6 +4765,21 @@ function AdminPage() {
       )
     ),
 
+    // แจ้งเตือน user ที่ถูกล็อค
+    (() => {
+      const lockedUsers = allUsers.filter(u => userSecurityMap[u.name] && userSecurityMap[u.name].locked);
+      if (lockedUsers.length === 0) return null;
+      return h('div',{className:'card',style:{padding:'12px 16px',background:'#fef2f2',border:'1px solid #fecaca'}},
+        h('div',{style:{display:'flex',alignItems:'center',gap:'10px'}},
+          h('span',{style:{fontSize:'20px'}},'🚨'),
+          h('div',{style:{flex:1}},
+            h('div',{style:{fontWeight:700,fontSize:'13px',color:'#991b1b'}},'มีผู้ใช้ถูกล็อค ' + lockedUsers.length + ' คน'),
+            h('div',{style:{fontSize:'11px',color:'#7f1d1d',marginTop:'2px'}},lockedUsers.map(u=>u.name).join(', ') + ' — ใส่ PIN ผิดเกิน 5 ครั้ง')
+          )
+        )
+      );
+    })(),
+
     // รายชื่อผู้ใช้
     h('div',{className:'card',style:{overflow:'hidden'}},
       h('div',{style:{padding:'12px 16px',borderBottom:'1px solid #e2e8f0',display:'flex',justifyContent:'space-between',alignItems:'center'}},
@@ -4712,10 +4788,12 @@ function AdminPage() {
           onClick:()=>{ui.modal='addUser';render();}},'+ เพิ่มผู้ใช้')
       ),
       allUsers.length===0?h('div',{style:{padding:'30px',textAlign:'center',color:'#94a3b8'}},'ยังไม่มีผู้ใช้'):
+      h('div',{style:{overflowX:'auto'}},
       h('table',{},
         h('thead',{},h('tr',{},
           h('th',{},'ชื่อ'), h('th',{},'Email'), h('th',{},'รหัสผ่าน'), h('th',{},'ระดับ'),
-          h('th',{},'เข้าล่าสุด'), h('th',{style:{width:'130px'}},'')
+          h('th',{style:{whiteSpace:'nowrap'}},'PIN / 🔐'),
+          h('th',{},'เข้าล่าสุด'), h('th',{style:{width:'200px'}},'')
         )),
         h('tbody',{},...allUsers.map(u=>{
           // ปุ่มแสดง/ซ่อนรหัส
@@ -4730,7 +4808,22 @@ function AdminPage() {
           });
           const pwCell = h('td',{style:{whiteSpace:'nowrap'}},pwSpan,eyeBtn);
 
-          return h('tr',{},
+          // Security info
+          const sec = userSecurityMap[u.name] || {};
+          const securityCell = h('td',{style:{whiteSpace:'nowrap',fontSize:'11px'}},
+            h('div',{style:{display:'flex',gap:'6px',flexWrap:'wrap'}},
+              sec.locked
+                ? h('span',{style:{background:'#fee2e2',color:'#991b1b',borderRadius:'4px',padding:'1px 6px',fontWeight:600}},'🔒 ล็อค')
+                : sec.hasPin
+                  ? h('span',{style:{background:'#dcfce7',color:'#166534',borderRadius:'4px',padding:'1px 6px'}},'✓ มี PIN')
+                  : h('span',{style:{background:'#f1f5f9',color:'#94a3b8',borderRadius:'4px',padding:'1px 6px'}},'— ไม่มี'),
+              sec.deviceCount > 0
+                ? h('span',{style:{background:'#dbeafe',color:'#1e40af',borderRadius:'4px',padding:'1px 6px'}},'🔐 ' + sec.deviceCount)
+                : null
+            )
+          );
+
+          return h('tr',{style:sec.locked?{background:'#fef2f2'}:{}},
             h('td',{style:{fontWeight:600}},
               u.name,
               u.name===currentUser.name?h('span',{style:{background:'#dbeafe',color:'#1e40af',borderRadius:'4px',padding:'1px 6px',fontSize:'10px',marginLeft:'6px',fontWeight:600}},'คุณ'):null
@@ -4741,12 +4834,44 @@ function AdminPage() {
               background: u.role==='admin'?'#fef3c7':u.role==='poweruser'?'#dbeafe':'#f1f5f9',
               color: u.role==='admin'?'#92400e':u.role==='poweruser'?'#1e40af':'#64748b'
             }}, u.role==='admin'?'Admin':u.role==='poweruser'?'Power User':'Viewer')),
+            securityCell,
             h('td',{style:{fontSize:'12px',color:'#64748b'}},u.lastLogin||'-'),
             h('td',{},
-              u.name===currentUser.name?null:
-              h('div',{style:{display:'flex',gap:'4px'}},
+              h('div',{style:{display:'flex',gap:'4px',flexWrap:'wrap'}},
+                // ปุ่ม unlock ถ้าถูกล็อค
+                sec.locked
+                  ? h('button',{className:'btn btn-primary',style:{fontSize:'11px',padding:'4px 8px',background:'#dc2626'},
+                      onClick:async()=>{
+                        const r = await unlockUser(u.name);
+                        if(r === false) return;
+                        if(r.success){showToast('✓ ปลดล็อค '+u.name+' แล้ว'); await fetchAllUsers(); render();}
+                        else showToast('❌ '+(r.error||'ล้มเหลว'),'err');
+                      }},'🔓 ปลดล็อค')
+                  : null,
+                // ปุ่ม reset PIN
+                sec.hasPin && u.name!==currentUser.name
+                  ? h('button',{className:'btn btn-outline',style:{fontSize:'11px',padding:'4px 8px',color:'#9333ea',borderColor:'#e9d5ff'},
+                      onClick:async()=>{
+                        const r = await resetUserPinCall(u.name);
+                        if(r === false) return;
+                        if(r.success){showToast('✓ รีเซ็ต PIN ของ '+u.name+' แล้ว'); await fetchAllUsers(); render();}
+                        else showToast('❌ '+(r.error||'ล้มเหลว'),'err');
+                      }},'🔑 รีเซ็ต PIN')
+                  : null,
+                // ปุ่มลบ Touch ID
+                sec.deviceCount > 0 && u.name!==currentUser.name
+                  ? h('button',{className:'btn btn-outline',style:{fontSize:'11px',padding:'4px 8px',color:'#0891b2',borderColor:'#a5f3fc'},
+                      onClick:async()=>{
+                        const r = await adminRemoveTouchId(u.name);
+                        if(r === false) return;
+                        if(r.success){showToast('✓ ลบ Touch ID ของ '+u.name+' แล้ว'); await fetchAllUsers(); render();}
+                        else showToast('❌ '+(r.error||'ล้มเหลว'),'err');
+                      }},'🗑 Touch ID')
+                  : null,
+                u.name===currentUser.name?null:
                 h('button',{className:'btn btn-outline',style:{fontSize:'11px',padding:'4px 8px'},
                   onClick:()=>{ui.selectedId=u.name;ui.modal='editUser';render();}},'แก้ไข'),
+                u.name===currentUser.name?null:
                 h('button',{className:'btn btn-danger',style:{fontSize:'11px',padding:'4px 8px'},
                   onClick:async()=>{
                     if(!confirm('ลบผู้ใช้ "'+u.name+'" ออกจากระบบ?')) return;
@@ -4758,6 +4883,7 @@ function AdminPage() {
             )
           );
         }))
+      )
       )
     )
   );
