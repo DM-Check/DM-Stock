@@ -3787,7 +3787,7 @@ function reprintDO(o) {
     '<table style="margin-bottom:10px;border-collapse:collapse"><tr><td style="width:90px;border:none;vertical-align:middle"><img src="'+S2N_LOGO+'" style="width:80px;height:80px;object-fit:contain"></td><td style="border:none;text-align:center;vertical-align:middle"><div style="font-size:22px;font-weight:800;color:#0f172a">ใบส่งของ</div><div style="font-size:15px;color:#475569;margin-top:2px">Delivery Order</div></td><td style="border:none;width:90px"></td></tr></table>'+
     '<table style="margin-bottom:10px;border-collapse:collapse"><tr><td style="width:45%;border:1px solid #b0c4de;padding:8px 10px;vertical-align:top"><b>ลูกค้า:</b><br><span style="font-size:14px;font-weight:600">'+o.billTo+'</span></td><td style="width:30%;border:1px solid #b0c4de;padding:8px 10px;vertical-align:top"><b>สถานที่ส่ง:</b><br>'+(o.shipTo||'-')+'</td><td style="width:20%;border:1px solid #b0c4de;padding:8px 10px"><b>วันที่:</b> '+dateStr+'<br><b>Po.No.:</b> '+(o.poNo||'-')+'<br><b>เลขที่:</b> <span style="font-weight:700;color:#0ea5e9">'+o.doNo+'</span></td></tr></table>'+
     '<table><thead><tr style="background:#e8f4ff"><th style="width:40px;border:1px solid #b0c4de;padding:8px 6px;text-align:center">ลำดับ</th><th style="border:1px solid #b0c4de;padding:8px;text-align:center">รายการ</th><th style="width:70px;border:1px solid #b0c4de;padding:8px 6px;text-align:center">จำนวน</th><th style="width:50px;border:1px solid #b0c4de;padding:8px 6px;text-align:center">หน่วย</th><th style="width:130px;border:1px solid #b0c4de;padding:8px 6px;text-align:center">หมายเหตุ</th></tr></thead><tbody>'+rows.join('')+'</tbody></table>'+
-    '<table style="margin-top:20px;border-collapse:collapse"><tr><td style="width:70%;padding:0;vertical-align:top"><table style="width:100%;border-collapse:collapse"><tr><td style="padding:6px 0;font-size:13px">ผู้ส่งสินค้า <span class="sig-line"></span></td></tr><tr><td style="padding:2px 0 16px 0;font-size:12px;color:#475569;padding-left:60px">วันที่ ........... / ........... / ...........</td></tr><tr><td style="padding:6px 0;font-size:13px">ผู้รับสินค้า <span class="sig-line"></span></td></tr><tr><td style="padding:2px 0 8px 0;font-size:12px;color:#475569;padding-left:60px">วันที่ ........... / ........... / ...........</td></tr><tr><td style="padding:4px 0;font-size:12px;color:#475569">เบอร์โทรผู้รับ <span style="border-bottom:1px solid #333;display:inline-block;width:200px;margin:0 4px;vertical-align:bottom">'+(o.phone||'')+'</span></td></tr></table></td><td style="width:30%;vertical-align:bottom;text-align:right;padding-bottom:8px"><div style="font-style:italic;color:#475569;font-size:12px">ได้ตรวจรับเป็นที่เรียบร้อยแล้ว</div></td></tr></table></body></html>';
+    '<table style="margin-top:20px;border-collapse:collapse;width:100%"><tr><td colspan="2" style="padding:6px 0;font-size:13px;border-bottom:1px solid #333"><b>หมายเหตุ:</b> '+(o.note||'')+'</td></tr><tr><td colspan="2" style="height:24px"></td></tr><tr><td style="width:50%;padding:6px 20px 6px 0;font-size:13px;vertical-align:top">ผู้ส่งสินค้า <span class="sig-line"></span><div style="padding:2px 0 0 60px;font-size:12px;color:#475569">วันที่ ........... / ........... / ...........</div></td><td style="width:50%;padding:6px 0 6px 20px;font-size:13px;vertical-align:top">ผู้รับสินค้า <span class="sig-line"></span><div style="padding:2px 0 0 60px;font-size:12px;color:#475569">วันที่ ........... / ........... / ...........</div><div style="padding:4px 0 0 0;font-size:12px;color:#475569">เบอร์โทรผู้รับ <span style="border-bottom:1px solid #333;display:inline-block;width:180px;margin:0 4px;vertical-align:bottom">'+(o.phone||'')+'</span></div></td></tr><tr><td colspan="2" style="text-align:right;padding-top:12px"><div style="font-style:italic;color:#475569;font-size:12px">ได้ตรวจรับเป็นที่เรียบร้อยแล้ว</div></td></tr></table></body></html>';
   const w = window.open('','_blank','width=820,height=1000');
   if(w){ w.document.write(html); w.document.close(); }
 }
@@ -4105,13 +4105,16 @@ function CreateDOModal() {
   inpPhone.addEventListener('input',()=>doForm.phone=inpPhone.value);
   const inpDate = h('input',{type:'date',className:'input',value:doForm.date||td()});
   inpDate.addEventListener('input',()=>doForm.date=inpDate.value);
+  const inpNote = h('input',{className:'input',placeholder:'หมายเหตุ (จะแสดงในใบส่งของ)',value:doForm.note||''});
+  inpNote.addEventListener('input',()=>doForm.note=inpNote.value);
 
   modal.appendChild(h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'12px'}},
     h('div',{},h('label',{className:'field-label'},'ลูกค้า (Bill to) ★'),inpBillTo),
     h('div',{},h('label',{className:'field-label'},'สถานที่ส่ง (Ship to)'),inpShipTo),
     h('div',{},h('label',{className:'field-label'},'ใบสั่งซื้อ / Po.No.'),inpPoNo),
     h('div',{},h('label',{className:'field-label'},'เบอร์โทรผู้รับ'),inpPhone),
-    h('div',{},h('label',{className:'field-label'},'วันที่'),inpDate)
+    h('div',{},h('label',{className:'field-label'},'วันที่'),inpDate),
+    h('div',{style:{gridColumn:'1 / span 2'}},h('label',{className:'field-label'},'หมายเหตุ'),inpNote)
   ));
 
   // รายการสินค้า
@@ -4467,35 +4470,27 @@ async function printDO() {
     '<th style="width:130px;border:1px solid #b0c4de;padding:8px 6px;text-align:center">หมายเหตุ</th>'+
     '</tr></thead><tbody>'+rows.join('')+'</tbody></table>'+
 
-    // Signature — แบบ B สูงขึ้น
-    '<table style="margin-top:20px;border-collapse:collapse">'+
+    // Signature — หมายเหตุด้านบน, ผู้ส่ง|ผู้รับ บรรทัดเดียวกัน
+    '<table style="margin-top:20px;border-collapse:collapse;width:100%">'+
+    // หมายเหตุ (เต็มแถว)
+    '<tr><td colspan="2" style="padding:6px 0;font-size:13px;border-bottom:1px solid #333">'+
+    '<b>หมายเหตุ:</b> '+(doForm.note||'')+
+    '</td></tr>'+
+    '<tr><td colspan="2" style="height:24px"></td></tr>'+
+    // ผู้ส่ง | ผู้รับ (บรรทัดเดียวกัน)
     '<tr>'+
-    '<td style="width:70%;padding:0;vertical-align:top">'+
-    // ผู้ส่งสินค้า
-    '<table style="width:100%;border-collapse:collapse">'+
-    '<tr><td style="padding:6px 0;font-size:13px">'+
+    '<td style="width:50%;padding:6px 20px 6px 0;font-size:13px;vertical-align:top">'+
     'ผู้ส่งสินค้า <span class="sig-line"></span>'+
-    '</td></tr>'+
-    '<tr><td style="padding:2px 0 16px 0;font-size:12px;color:#475569;padding-left:60px">'+
-    'วันที่ ........... / ........... / ...........'+
-    '</td></tr>'+
-    // ผู้รับสินค้า
-    '<tr><td style="padding:6px 0;font-size:13px">'+
+    '<div style="padding:2px 0 0 60px;font-size:12px;color:#475569">วันที่ ........... / ........... / ...........</div>'+
+    '</td>'+
+    '<td style="width:50%;padding:6px 0 6px 20px;font-size:13px;vertical-align:top">'+
     'ผู้รับสินค้า <span class="sig-line"></span>'+
-    '</td></tr>'+
-    '<tr><td style="padding:2px 0 8px 0;font-size:12px;color:#475569;padding-left:60px">'+
-    'วันที่ ........... / ........... / ...........'+
-    '</td></tr>'+
-    // เบอร์โทร
-    '<tr><td style="padding:4px 0;font-size:12px;color:#475569">'+
-    'เบอร์โทรผู้รับ <span style="border-bottom:1px solid #333;display:inline-block;width:200px;margin:0 4px;vertical-align:bottom">'+(doForm.phone||'')+'</span>'+
-    '</td></tr>'+
+    '<div style="padding:2px 0 0 60px;font-size:12px;color:#475569">วันที่ ........... / ........... / ...........</div>'+
+    '<div style="padding:4px 0 0 0;font-size:12px;color:#475569">เบอร์โทรผู้รับ <span style="border-bottom:1px solid #333;display:inline-block;width:180px;margin:0 4px;vertical-align:bottom">'+(doForm.phone||'')+'</span></div>'+
+    '</td>'+
+    '</tr>'+
+    '<tr><td colspan="2" style="text-align:right;padding-top:12px"><div style="font-style:italic;color:#475569;font-size:12px">ได้ตรวจรับเป็นที่เรียบร้อยแล้ว</div></td></tr>'+
     '</table>'+
-    '</td>'+
-    '<td style="width:30%;vertical-align:bottom;text-align:right;padding-bottom:8px">'+
-    '<div style="font-style:italic;color:#475569;font-size:12px">ได้ตรวจรับเป็นที่เรียบร้อยแล้ว</div>'+
-    '</td>'+
-    '</tr></table>'+
 
     '</body></html>';
 
@@ -4511,6 +4506,7 @@ async function printDO() {
       doNo, date:doForm.date||td(),
       billTo:doForm.billTo, shipTo:doForm.shipTo||'',
       poNo:doForm.poNo||'', phone:doForm.phone||'',
+      note:doForm.note||'',
       createdBy:currentUser?currentUser.name:'',
       items:JSON.stringify(activeItems.map(i=>({
         productId:i.productId, productName:i.productName,
