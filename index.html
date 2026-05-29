@@ -301,7 +301,11 @@ async function fetchLastRead() {
     const res = await fetch(url);
     const data = await res.json();
     if (data.success) {
-      myLastRead = data.lastRead;
+      // ใช้ค่าจาก Sheet ก่อน ถ้าไม่มีลอง localStorage (cache ในเครื่อง)
+      const serverTs = data.lastRead;
+      const localTs = parseInt(localStorage.getItem('dm_lastRead_'+currentUser.name)||'0',10);
+      // ใช้ค่าที่ใหม่กว่า (กันเคส Sheet ยังไม่ sync แต่เพิ่งกด อ่านทั้งหมด)
+      myLastRead = Math.max(serverTs||0, localTs||0) || null;
       updateUnreadCount();
       render(); // re-render เพื่ออัปเดต badge
     }
@@ -312,6 +316,8 @@ async function markAsRead() {
   if (!currentUser) return;
   myLastRead = Date.now();
   unreadCount = 0;
+  // บันทึก localStorage ทันที (กัน race condition + กันกรณี Sheet เขียนช้า)
+  try { localStorage.setItem('dm_lastRead_'+currentUser.name, String(myLastRead)); } catch(e){}
   // อัปเดต badge ใน sidebar
   const badgeEl = document.getElementById('history-badge');
   if (badgeEl) { badgeEl.textContent = ''; badgeEl.style.display='none'; }
@@ -327,6 +333,11 @@ async function markAsRead() {
 }
 
 function updateUnreadCount() {
+  // ถ้ายังไม่รู้ lastRead ลองดึงจาก localStorage ก่อน (กัน race condition ตอนโหลดเริ่มต้น)
+  if (!myLastRead && currentUser) {
+    const cached = parseInt(localStorage.getItem('dm_lastRead_'+currentUser.name)||'0',10);
+    if (cached > 0) myLastRead = cached;
+  }
   if (!currentUser || !myLastRead) {
     // ถ้าไม่เคยอ่านเลย → นับทุกรายการที่คนอื่นบันทึก
     unreadCount = transactions.filter(tx =>
@@ -5865,9 +5876,11 @@ fetchUserNames().then(() => {
 
 // ถ้าล็อกอินอยู่แล้ว โหลดข้อมูลเลย
 if (currentUser) {
-  fetchProducts().then(() => fetchTransactions());
-  fetchLots(); fetchProjects(); fetchReservations(); fetchDeliveryOrders();
-  fetchLastRead();
+  // โหลด lastRead ก่อน เพื่อให้นับ unread ถูกตั้งแต่ครั้งแรก (กัน race condition)
+  fetchLastRead().then(() => {
+    fetchProducts().then(() => fetchTransactions());
+    fetchLots(); fetchProjects(); fetchReservations(); fetchDeliveryOrders();
+  });
 }
 </script>
 </body>
